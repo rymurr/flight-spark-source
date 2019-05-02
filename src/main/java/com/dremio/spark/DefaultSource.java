@@ -9,6 +9,6 @@ import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 public class DefaultSource implements DataSourceV2, ReadSupport {
     private final RootAllocator rootAllocator = new RootAllocator();
     public DataSourceReader createReader(DataSourceOptions dataSourceOptions) {
-        return new DremioDataSourceReader(dataSourceOptions, rootAllocator.newChildAllocator(dataSourceOptions.toString(), 0, rootAllocator.getLimit()));
+        return new FlightDataSourceReader(dataSourceOptions, rootAllocator.newChildAllocator(dataSourceOptions.toString(), 0, rootAllocator.getLimit()));
     }
 }

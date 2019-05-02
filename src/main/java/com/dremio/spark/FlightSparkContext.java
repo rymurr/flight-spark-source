@@ -4,6 +4,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.DataFrameReader;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
 
 public class FlightSparkContext {
@@ -22,8 +24,8 @@ public class FlightSparkContext {
         return new FlightSparkContext(sc.sc(), sc.getConf());
     }
 
-    public void read(String s) {
-        reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
+    public Dataset<Row> read(String s) {
+        return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
                 .option("host", conf.get("spark.flight.endpoint.host"))
                 .option("username", conf.get("spark.flight.username"))
                 .option("password", conf.get("spark.flight.password"))

@@ -297,6 +297,16 @@
     </build>
     <dependencies>
         <dependency>
+            <groupId>org.codehaus.janino</groupId>
+            <artifactId>janino</artifactId>
+            <version>3.0.11</version>
+        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.fasterxml.jackson.module</groupId>-->
+<!--            <artifactId>jackson-module-scala_2.11</artifactId>-->
+<!--            <version>2.7.9</version>-->
+<!--        </dependency>-->
+        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_2.11</artifactId>
             <version>${spark.version}</version>
@@ -313,22 +323,30 @@
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>javax.servlet</groupId>
-                    <artifactId>servlet-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.jackson</groupId>
-                    <artifactId>jackson-mapper-asl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.jackson</groupId>
-                    <artifactId>jackson-core-asl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
+<!--                <exclusion>-->
+<!--                    <groupId>javax.servlet</groupId>-->
+<!--                    <artifactId>servlet-api</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-core-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--                    <artifactId>jackson-databind</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-jaxrs</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-xc</artifactId>-->
+<!--                </exclusion>-->
             </exclusions>
         </dependency>
         <dependency>
@@ -352,22 +370,22 @@
                     <groupId>javax.servlet</groupId>
                     <artifactId>servlet-api</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.jackson</groupId>
-                    <artifactId>jackson-mapper-asl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.jackson</groupId>
-                    <artifactId>jackson-core-asl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.arrow</groupId>
-                    <artifactId>arrow-vector</artifactId>
-                </exclusion>
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-core-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--                    <artifactId>jackson-databind</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.apache.arrow</groupId>-->
+<!--                    <artifactId>arrow-vector</artifactId>-->
+<!--                </exclusion>-->
             </exclusions>
         </dependency>
         <dependency>
@@ -376,43 +394,38 @@
             <version>${arrow.version}</version>
             <classifier>shaded</classifier>
         </dependency>
-        <dependency>
-            <groupId>com.dremio.sabot</groupId>
-            <artifactId>dremio-sabot-flight</artifactId>
-            <version>${dremio.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.dremio.sabot</groupId>
-            <artifactId>dremio-sabot-kernel</artifactId>
-            <version>${dremio.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.servlet</groupId>
-                    <artifactId>servlet-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- test dependencies -->
 <!--        <dependency>-->
-<!--            <groupId>org.apache.arrow</groupId>-->
-<!--            <artifactId>arrow-flight</artifactId>-->
-<!--            <version>${arrow.version}</version>-->
-<!--            <classifier>tests</classifier>-->
-<!--            <scope>test</scope>-->
+<!--            <groupId>com.dremio.sabot</groupId>-->
+<!--            <artifactId>dremio-sabot-kernel</artifactId>-->
+<!--            <version>${dremio.version}</version>-->
+<!--            <exclusions>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.slf4j</groupId>-->
+<!--                    <artifactId>slf4j-log4j12</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>commons-logging</groupId>-->
+<!--                    <artifactId>commons-logging</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>log4j</groupId>-->
+<!--                    <artifactId>log4j</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>javax.servlet</groupId>-->
+<!--                    <artifactId>servlet-api</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.codehaus.jackson</groupId>-->
+<!--                    <artifactId>jackson-core-asl</artifactId>-->
+<!--                </exclusion>-->
+<!--            </exclusions>-->
 <!--        </dependency>-->
+        <!-- test dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jul-to-slf4j</artifactId>
@@ -451,21 +464,26 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.dremio.sabot</groupId>
-            <artifactId>dremio-sabot-kernel</artifactId>
-            <version>${dremio.version}</version>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.dremio</groupId>
-            <artifactId>dremio-common</artifactId>
-            <version>${dremio.version}</version>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-        </dependency>
-
+<!--        <dependency>-->
+<!--            <groupId>com.dremio.sabot</groupId>-->
+<!--            <artifactId>dremio-sabot-kernel</artifactId>-->
+<!--            <version>${dremio.version}</version>-->
+<!--            <classifier>tests</classifier>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.dremio</groupId>-->
+<!--            <artifactId>dremio-common</artifactId>-->
+<!--            <version>${dremio.version}</version>-->
+<!--            <classifier>tests</classifier>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.dremio.sabot</groupId>-->
+<!--            <artifactId>dremio-sabot-flight</artifactId>-->
+<!--            <version>${dremio.version}</version>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
     </dependencies>
 
 </project>
