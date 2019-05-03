@@ -36,7 +36,7 @@ public class FlightDataSourceReader implements DataSourceReader {
                 allocator.newChildAllocator("data-source-reader", 0, allocator.getLimit()),
                 defaultLocation);
         client.authenticateBasic(dataSourceOptions.get("username").orElse("anonymous"), dataSourceOptions.get("password").orElse(""));
-        info = client.getInfo(FlightDescriptor.path("sys", "options"));
+        info = client.getInfo(FlightDescriptor.path(dataSourceOptions.get("path").orElse("").split("\\.")));
         try {
             client.close();
         } catch (InterruptedException e) {
@@ -114,11 +114,16 @@ public class FlightDataSourceReader implements DataSourceReader {
     }
 
     public List<DataReaderFactory<Row>> createDataReaderFactories() {
-        return info.getEndpoints().stream().map(endpoint ->
-                new FlightDataReaderFactory(endpoint,
-                        allocator.newChildAllocator("data-source-reader", 0, allocator.getLimit()),
-                        defaultLocation,
-                        info.getSchema(),
-                        readSchema())).collect(Collectors.toList());
+
+        return info.getEndpoints().stream().map(endpoint -> {
+            Location location = (endpoint.getLocations().isEmpty()) ?
+                    new Location(defaultLocation.getHost(), defaultLocation.getPort()) :
+                    endpoint.getLocations().get(0);
+                return new FlightDataReaderFactory(endpoint.getTicket().getBytes(),
+//                        allocator.newChildAllocator("data-source-reader", 0, allocator.getLimit()),
+                        location.getHost(), location.getPort(),
+                        //info.getSchema(),
+                        readSchema());
+        }).collect(Collectors.toList());
     }
 }
