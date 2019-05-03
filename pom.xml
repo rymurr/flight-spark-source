@@ -347,6 +347,10 @@
 <!--                    <groupId>org.codehaus.jackson</groupId>-->
 <!--                    <artifactId>jackson-xc</artifactId>-->
 <!--                </exclusion>-->
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-vector</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -382,10 +386,10 @@
 <!--                    <groupId>com.fasterxml.jackson.core</groupId>-->
 <!--                    <artifactId>jackson-databind</artifactId>-->
 <!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.apache.arrow</groupId>-->
-<!--                    <artifactId>arrow-vector</artifactId>-->
-<!--                </exclusion>-->
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-vector</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -393,6 +397,16 @@
             <artifactId>arrow-flight</artifactId>
             <version>${arrow.version}</version>
             <classifier>shaded</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.dremio.client</groupId>
+            <artifactId>dremio-client-jdbc</artifactId>
+            <version>${dremio.version}</version>
         </dependency>
 <!--        <dependency>-->
 <!--            <groupId>com.dremio.sabot</groupId>-->
