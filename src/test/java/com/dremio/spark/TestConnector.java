@@ -5,7 +5,9 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import org.apache.spark.api.java.JavaSparkContext;
@@ -22,11 +24,11 @@ public class TestConnector {
         conf = new SparkConf()
                 .setAppName("flightTest")
                 .setMaster("local[*]")
-//                .set("spark.driver.allowMultipleContexts","true")
+                .set("spark.driver.allowMultipleContexts","true")
                 .set("spark.flight.endpoint.host", "localhost")
                 .set("spark.flight.endpoint.port", "47470")
-                .set("spark.flight.username", "dremio")
-                .set("spark.flight.password", "dremio123")
+                .set("spark.flight.auth.username", "dremio")
+                .set("spark.flight.auth.password", "dremio123")
                 ;
         sc = new JavaSparkContext(conf);
 
@@ -45,6 +47,33 @@ public class TestConnector {
 
     @Test
     public void testRead() {
+        long count = csc.read("sys.options").count();
+        Assert.assertTrue(count > 0);
+    }
+
+    @Test
+    public void testReadWithQuotes() {
+        long count = csc.read("\"sys\".options").count();
+        Assert.assertTrue(count > 0);
+    }
+
+    @Test
+    public void testSql() {
+        long count = csc.readSql("select * from \"sys\".options").count();
+        Assert.assertTrue(count > 0);
+    }
+
+    @Test
+    public void testFilter() {
+        Dataset<Row> df = csc.readSql("select * from \"sys\".options");
+        long count = df.filter(df.col("kind").equalTo("LONG")).count();
+        long countOriginal = csc.readSql("select * from \"sys\".options").count();
+        Assert.assertTrue(count < countOriginal);
+    }
+
+    @Ignore
+    @Test
+    public void testSpeed() {
         long[] jdbcT = new long[16];
         long[] flightT = new long[16];
         Properties connectionProperties = new Properties();
@@ -52,7 +81,7 @@ public class TestConnector {
         connectionProperties.put("password", "dremio123");
         long jdbcC = 0;
         long flightC = 0;
-        for (int i=0;i<2;i++) {
+        for (int i=0;i<4;i++) {
             long now = System.currentTimeMillis();
             Dataset<Row> jdbc = SQLContext.getOrCreate(sc.sc()).read().jdbc("jdbc:dremio:direct=localhost:31010", "\"@dremio\".sdd", connectionProperties);
             jdbcC = jdbc.count();
