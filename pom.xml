@@ -11,7 +11,7 @@
     <properties>
         <dremio.version>3.1.10-201904162146020182-adf690d</dremio.version>
         <arrow.version>0.14.0-SNAPSHOT</arrow.version>
-        <spark.version>2.3.3</spark.version>
+        <spark.version>2.4.2</spark.version>
         <dep.slf4j.version>1.7.25</dep.slf4j.version>
     </properties>
     <build>
@@ -275,36 +275,13 @@
                     <target>8</target>
                 </configuration>
             </plugin>
-            <!--            <plugin> &lt;!&ndash; generate sources from fmpp &ndash;&gt;-->
-<!--                <groupId>com.dremio.tools</groupId>-->
-<!--                <artifactId>dremio-fmpp-maven-plugin</artifactId>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>generate-fmpp</id>-->
-<!--                        <phase>generate-sources</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>generate</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <config>src/main/codegen/config.fmpp</config>-->
-<!--                            <output>${project.build.directory}/generated-sources/fmpp</output>-->
-<!--                            <templates>src/main/codegen/templates</templates>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
         </plugins>
     </build>
     <dependencies>
-        <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>3.0.11</version>
-        </dependency>
 <!--        <dependency>-->
-<!--            <groupId>com.fasterxml.jackson.module</groupId>-->
-<!--            <artifactId>jackson-module-scala_2.11</artifactId>-->
-<!--            <version>2.7.9</version>-->
+<!--            <groupId>org.codehaus.janino</groupId>-->
+<!--            <artifactId>janino</artifactId>-->
+<!--            <version>3.0.11</version>-->
 <!--        </dependency>-->
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -322,34 +299,6 @@
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
-                </exclusion>
-<!--                <exclusion>-->
-<!--                    <groupId>javax.servlet</groupId>-->
-<!--                    <artifactId>servlet-api</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-core-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>com.fasterxml.jackson.core</groupId>-->
-<!--                    <artifactId>jackson-databind</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-jaxrs</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-xc</artifactId>-->
-<!--                </exclusion>-->
-                <exclusion>
-                    <groupId>org.apache.arrow</groupId>
-                    <artifactId>arrow-vector</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -374,22 +323,6 @@
                     <groupId>javax.servlet</groupId>
                     <artifactId>servlet-api</artifactId>
                 </exclusion>
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-core-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>com.fasterxml.jackson.core</groupId>-->
-<!--                    <artifactId>jackson-databind</artifactId>-->
-<!--                </exclusion>-->
-                <exclusion>
-                    <groupId>org.apache.arrow</groupId>
-                    <artifactId>arrow-vector</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -398,46 +331,15 @@
             <version>${arrow.version}</version>
             <classifier>shaded</classifier>
         </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-vector</artifactId>
-            <version>${arrow.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.dremio.client</groupId>
-            <artifactId>dremio-client-jdbc</artifactId>
-            <version>${dremio.version}</version>
-        </dependency>
 <!--        <dependency>-->
-<!--            <groupId>com.dremio.sabot</groupId>-->
-<!--            <artifactId>dremio-sabot-kernel</artifactId>-->
+<!--            <groupId>org.apache.arrow</groupId>-->
+<!--            <artifactId>arrow-vector</artifactId>-->
+<!--            <version>${arrow.version}</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.dremio.client</groupId>-->
+<!--            <artifactId>dremio-client-jdbc</artifactId>-->
 <!--            <version>${dremio.version}</version>-->
-<!--            <exclusions>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.slf4j</groupId>-->
-<!--                    <artifactId>slf4j-log4j12</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>commons-logging</groupId>-->
-<!--                    <artifactId>commons-logging</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>log4j</groupId>-->
-<!--                    <artifactId>log4j</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>javax.servlet</groupId>-->
-<!--                    <artifactId>servlet-api</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-mapper-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.codehaus.jackson</groupId>-->
-<!--                    <artifactId>jackson-core-asl</artifactId>-->
-<!--                </exclusion>-->
-<!--            </exclusions>-->
 <!--        </dependency>-->
         <!-- test dependencies -->
         <dependency>
@@ -478,26 +380,6 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>com.dremio.sabot</groupId>-->
-<!--            <artifactId>dremio-sabot-kernel</artifactId>-->
-<!--            <version>${dremio.version}</version>-->
-<!--            <classifier>tests</classifier>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>com.dremio</groupId>-->
-<!--            <artifactId>dremio-common</artifactId>-->
-<!--            <version>${dremio.version}</version>-->
-<!--            <classifier>tests</classifier>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>com.dremio.sabot</groupId>-->
-<!--            <artifactId>dremio-sabot-flight</artifactId>-->
-<!--            <version>${dremio.version}</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
     </dependencies>
 
 </project>
