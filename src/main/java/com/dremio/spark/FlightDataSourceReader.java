@@ -1,6 +1,10 @@
 package com.dremio.spark;
 
 import com.clearspring.analytics.util.Lists;
+import com.dremio.proto.flight.commands.Command;
+import com.google.common.base.Joiner;
+import io.protostuff.LinkedBuffer;
+import io.protostuff.ProtostuffIOUtil;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
@@ -22,13 +26,22 @@ import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class FlightDataSourceReader implements SupportsScanColumnarBatch, SupportsPushDownFilters {
-    private final FlightInfo info;
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlightDataSourceReader.class);
+    private static final Joiner JOINER = Joiner.on(" and ");
+    private FlightInfo info;
+    private FlightDescriptor descriptor;
+    private final LinkedBuffer buffer = LinkedBuffer.allocate();
     private final Location defaultLocation;
+    private final FlightClientFactory clientFactory;
+    private final boolean parallel;
+    private String sql;
     private Filter[] pushed;
 
     public FlightDataSourceReader(DataSourceOptions dataSourceOptions, BufferAllocator allocator) {
@@ -36,51 +49,26 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
                 dataSourceOptions.get("host").orElse("localhost"),
                 dataSourceOptions.getInt("port", 47470)
         );
-        FlightClient client = new FlightClient(allocator,defaultLocation);
-        client.authenticateBasic(dataSourceOptions.get("username").orElse("anonymous"), dataSourceOptions.get("password").orElse(null));
-        info = client.getInfo(getDescriptor(dataSourceOptions));
-        try {
-            client.close();
+        clientFactory = new FlightClientFactory(allocator,
+                defaultLocation,
+                dataSourceOptions.get("username").orElse("anonymous"),
+                dataSourceOptions.get("password").orElse(null)
+                );
+        parallel = dataSourceOptions.getBoolean("parallel", false);
+        sql = dataSourceOptions.get("path").orElse("");
+        descriptor = getDescriptor(dataSourceOptions.getBoolean("isSql", false), sql);
+        try (FlightClient client = clientFactory.apply()) {
+            info = client.getInfo(descriptor);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
-    private FlightDescriptor getDescriptor(DataSourceOptions dataSourceOptions) {
-        if (dataSourceOptions.getBoolean("isSql", false)) {
-            return FlightDescriptor.command(dataSourceOptions.get("path").orElse("").getBytes());
-        }
-        String path = dataSourceOptions.get("path").orElse("");
-        List<String> paths = Lists.newArrayList();
-        StringBuilder current = new StringBuilder();
-        boolean isQuote = false;
-        for (char c: path.toCharArray()) {
-            if (isQuote && c != '"') {
-                current.append(c);
-            } else if (isQuote) {
-                if (current.length() > 0) {
-                    paths.add(current.toString());
-                }
-                current = new StringBuilder();
-                isQuote = false;
-            } else if (c == '"') {
-                if (current.length() > 0) {
-                    paths.add(current.toString());
-                }
-                current = new StringBuilder();
-                isQuote = true;
-            } else if (c == '.'){
-                if (current.length() > 0) {
-                    paths.add(current.toString());
-                }
-                current = new StringBuilder();
-                isQuote = false;
-            } else {
-                current.append(c);
-            }
-        }
-        paths.add(current.toString());
-        return FlightDescriptor.path(paths);
+    private FlightDescriptor getDescriptor(boolean isSql, String path) {
+        String query = (!isSql) ? ("select * from " + path) : path;
+        byte[] message = ProtostuffIOUtil.toByteArray(new Command(query , parallel), Command.getSchema(), buffer);
+        buffer.clear();
+        return FlightDescriptor.command(message);
     }
 
     public StructType readSchema() {
@@ -177,7 +165,43 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
             }
         }
         this.pushed = pushed.toArray(new Filter[0]);
+        if (!pushed.isEmpty()) {
+            String whereClause = generateWhereClause(pushed);
+            mergeWhereDescriptors(whereClause);
+            try (FlightClient client = clientFactory.apply()) {
+                info = client.getInfo(descriptor);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
         return notPushed.toArray(new Filter[0]);
+    }
+
+    private void mergeWhereDescriptors(String whereClause) {
+        if (sql.contains(" where ")) {
+            throw new UnsupportedOperationException("have not yet done the regex to insert where clauses");
+        }
+        sql += " where " + whereClause;
+        descriptor = getDescriptor(true, sql);
+    }
+
+    private String generateWhereClause(List<Filter> pushed) {
+        List<String> filterStr = Lists.newArrayList();
+        for (Filter filter: pushed) {
+            if (filter instanceof IsNotNull) {
+                filterStr.add(String.format("isnotnull(\"%s\")", ((IsNotNull) filter).attribute()));
+            } else if (filter instanceof EqualTo){
+                filterStr.add(String.format("\"%s\" = %s", ((EqualTo) filter).attribute(), valueToString(((EqualTo) filter).value())));
+            }
+        }
+        return JOINER.join(filterStr);
+    }
+
+    private String valueToString(Object value) {
+        if (value instanceof String) {
+            return String.format("'%s'", value);
+        }
+        return value.toString();
     }
 
     private boolean canBePushed(Filter filter) {
@@ -186,6 +210,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         } else if (filter instanceof EqualTo){
             return true;
         }
+        LOGGER.error("Cant push filter of type " + filter.toString());
         return false;
     }
 
