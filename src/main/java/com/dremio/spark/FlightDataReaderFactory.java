@@ -21,7 +21,7 @@ public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
 
     @Override
     public String[] preferredLocations() {
-        return new String[0]; //endpoint.getLocations().stream().map(Location::getHost).toArray(String[]::new);
+        return new String[]{defaultHost};
     }
 
     @Override

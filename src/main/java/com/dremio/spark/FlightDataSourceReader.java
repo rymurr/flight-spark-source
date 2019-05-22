@@ -1,8 +1,8 @@
 package com.dremio.spark;
 
-import com.clearspring.analytics.util.Lists;
 import com.dremio.proto.flight.commands.Command;
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import io.protostuff.LinkedBuffer;
 import io.protostuff.ProtostuffIOUtil;
 import org.apache.arrow.flight.FlightClient;
@@ -19,6 +19,7 @@ import org.apache.spark.sql.sources.IsNotNull;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
+import org.apache.spark.sql.sources.v2.reader.SupportsPushDownRequiredColumns;
 import org.apache.spark.sql.sources.v2.reader.SupportsScanColumnarBatch;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -30,13 +31,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-public class FlightDataSourceReader implements SupportsScanColumnarBatch, SupportsPushDownFilters {
+import scala.collection.JavaConversions;
+
+public class FlightDataSourceReader implements SupportsScanColumnarBatch, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlightDataSourceReader.class);
-    private static final Joiner JOINER = Joiner.on(" and ");
+    private static final Joiner WHERE_JOINER = Joiner.on(" and ");
+    private static final Joiner PROJ_JOINER = Joiner.on(", ");
     private FlightInfo info;
     private FlightDescriptor descriptor;
+    private StructType schema;
     private final LinkedBuffer buffer = LinkedBuffer.allocate();
     private final Location defaultLocation;
     private final FlightClientFactory clientFactory;
@@ -71,7 +77,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         return FlightDescriptor.command(message);
     }
 
-    public StructType readSchema() {
+    private StructType readSchemaImpl() {
         StructField[] fields = info.getSchema().getFields().stream()
                 .map(field ->
                     new StructField(field.getName(),
@@ -80,6 +86,13 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
                             Metadata.empty()))
                 .toArray(StructField[]::new);
         return new StructType(fields);
+    }
+
+    public StructType readSchema() {
+        if (schema == null) {
+            schema = readSchemaImpl();
+        }
+        return schema;
     }
 
     private DataType sparkFromArrow(FieldType fieldType) {
@@ -178,10 +191,12 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     }
 
     private void mergeWhereDescriptors(String whereClause) {
-        if (sql.contains(" where ")) {
-            throw new UnsupportedOperationException("have not yet done the regex to insert where clauses");
-        }
-        sql += " where " + whereClause;
+        sql = String.format("select * from (%s) where %s", sql, whereClause);
+        descriptor = getDescriptor(true, sql);
+    }
+
+    private void mergeProjDescriptors(String projClause) {
+        sql = String.format("select %s from (%s)", projClause, sql);
         descriptor = getDescriptor(true, sql);
     }
 
@@ -194,7 +209,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
                 filterStr.add(String.format("\"%s\" = %s", ((EqualTo) filter).attribute(), valueToString(((EqualTo) filter).value())));
             }
         }
-        return JOINER.join(filterStr);
+        return WHERE_JOINER.join(filterStr);
     }
 
     private String valueToString(Object value) {
@@ -217,5 +232,33 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     @Override
     public Filter[] pushedFilters() {
         return pushed;
+    }
+
+    @Override
+    public void pruneColumns(StructType requiredSchema) {
+        if (requiredSchema.toSeq().isEmpty()) {
+            return;
+        }
+        StructType schema = readSchema();
+        List<String> fields = Lists.newArrayList();
+        List<StructField> fieldsLeft = Lists.newArrayList();
+        Map<String, StructField> fieldNames = JavaConversions.seqAsJavaList(schema.toSeq()).stream().collect(Collectors.toMap(StructField::name, f->f));
+        for (StructField field: JavaConversions.seqAsJavaList(requiredSchema.toSeq())) {
+            String name = field.name();
+            StructField f = fieldNames.remove(name);
+            if (f != null) {
+                fields.add(String.format("\"%s\"",name));
+                fieldsLeft.add(f);
+            }
+        }
+        if (!fieldNames.isEmpty()) {
+            this.schema = new StructType(fieldsLeft.toArray(new StructField[0]));
+            mergeProjDescriptors(PROJ_JOINER.join(fields));
+            try (FlightClient client = clientFactory.apply()) {
+                info = client.getInfo(descriptor);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.util.Properties;
+import java.util.function.Consumer;
 
 public class TestConnector {
     private static SparkConf conf;
@@ -69,6 +70,42 @@ public class TestConnector {
         long count = df.filter(df.col("kind").equalTo("LONG")).count();
         long countOriginal = csc.readSql("select * from \"sys\".options").count();
         Assert.assertTrue(count < countOriginal);
+    }
+
+    private static class SizeConsumer implements Consumer<Row> {
+        private int length = 0;
+        private int width = 0;
+
+        @Override
+        public void accept(Row row) {
+            length+=1;
+            width = row.length();
+        }
+    }
+
+    @Test
+    public void testProject() {
+        Dataset<Row> df = csc.readSql("select * from \"sys\".options");
+        SizeConsumer c = new SizeConsumer();
+        df.select("name", "kind", "type").toLocalIterator().forEachRemaining(c);
+        long count = c.width;
+        long countOriginal = csc.readSql("select * from \"sys\".options").columns().length;
+        Assert.assertTrue(count < countOriginal);
+    }
+
+    @Test
+    public void testParallel() {
+        Dataset<Row> df = csc.readSql("select * from \"sys\".options", true);
+        SizeConsumer c = new SizeConsumer();
+        SizeConsumer c2 = new SizeConsumer();
+        df.select("name", "kind", "type").filter(df.col("kind").equalTo("LONG")).toLocalIterator().forEachRemaining(c);
+        long width = c.width;
+        long length = c.length;
+        csc.readSql("select * from \"sys\".options", true).toLocalIterator().forEachRemaining(c2);
+        long widthOriginal = c2.width;
+        long lengthOriginal = c2.length;
+        Assert.assertTrue(width < widthOriginal);
+        Assert.assertTrue(length < lengthOriginal);
     }
 
     @Ignore

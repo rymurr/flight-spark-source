@@ -29,6 +29,7 @@ public class FlightSparkContext {
                 .option("username", conf.get("spark.flight.auth.username"))
                 .option("password", conf.get("spark.flight.auth.password"))
                 .option("isSql", false)
+                .option("parallel", false)
                 .load(s);
     }
 
@@ -38,6 +39,27 @@ public class FlightSparkContext {
                 .option("username", conf.get("spark.flight.auth.username"))
                 .option("password", conf.get("spark.flight.auth.password"))
                 .option("isSql", true)
+                .option("parallel", false)
+                .load(s);
+    }
+
+    public Dataset<Row> read(String s, boolean parallel) {
+        return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
+                .option("host", conf.get("spark.flight.endpoint.host"))
+                .option("username", conf.get("spark.flight.auth.username"))
+                .option("password", conf.get("spark.flight.auth.password"))
+                .option("isSql", false)
+                .option("parallel", parallel)
+                .load(s);
+    }
+
+    public Dataset<Row> readSql(String s, boolean parallel) {
+        return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
+                .option("host", conf.get("spark.flight.endpoint.host"))
+                .option("username", conf.get("spark.flight.auth.username"))
+                .option("password", conf.get("spark.flight.auth.password"))
+                .option("isSql", true)
+                .option("parallel", parallel)
                 .load(s);
     }
 }
