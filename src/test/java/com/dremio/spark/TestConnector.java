@@ -95,13 +95,16 @@ public class TestConnector {
 
     @Test
     public void testParallel() {
-        Dataset<Row> df = csc.readSql("select * from \"sys\".options", true);
+        String easySql = "select * from sys.options";
+        String hardSql = "select * from \"@dremio\".test";
+        Dataset<Row> df = csc.readSql(hardSql, true);
         SizeConsumer c = new SizeConsumer();
         SizeConsumer c2 = new SizeConsumer();
-        df.select("name", "kind", "type").filter(df.col("kind").equalTo("LONG")).toLocalIterator().forEachRemaining(c);
+        Dataset<Row> dff = df.select("bid", "ask", "symbol").filter(df.col("symbol").equalTo("USDCAD"));
+        dff.toLocalIterator().forEachRemaining(c);
         long width = c.width;
         long length = c.length;
-        csc.readSql("select * from \"sys\".options", true).toLocalIterator().forEachRemaining(c2);
+        csc.readSql(hardSql, true).toLocalIterator().forEachRemaining(c2);
         long widthOriginal = c2.width;
         long lengthOriginal = c2.length;
         Assert.assertTrue(width < widthOriginal);

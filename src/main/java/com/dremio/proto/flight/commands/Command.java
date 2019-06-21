@@ -10,6 +10,7 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.Objects;
 
+import io.protostuff.ByteString;
 import io.protostuff.GraphIOUtil;
 import io.protostuff.Input;
 import io.protostuff.Message;
@@ -38,6 +39,10 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
             query;
     private Boolean
             parallel;
+    private Boolean
+            coalesce;
+    private ByteString
+            ticket;
 
     public Command()
     {
@@ -46,11 +51,15 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
 
     public Command(
             String query,
-            Boolean parallel
+            Boolean parallel,
+            Boolean coalesce,
+            ByteString ticket
     )
     {
         this.query = query;
         this.parallel = parallel;
+        this.coalesce = coalesce;
+        this.ticket = ticket;
     }
 
     // getters and setters
@@ -83,6 +92,34 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
         return this;
     }
 
+    // coalesce
+    public Boolean
+    getCoalesce()
+    {
+        return coalesce;
+    }
+
+    public Command setCoalesce(Boolean
+                                       coalesce)
+    {
+        this.coalesce = coalesce;
+        return this;
+    }
+
+    // ticket
+    public ByteString
+    getTicket()
+    {
+        return ticket;
+    }
+
+    public Command setTicket(ByteString
+                                     ticket)
+    {
+        this.ticket = ticket;
+        return this;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -94,12 +131,14 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
         final Command that = (Command) obj;
         return
                 Objects.equals(this.query, that.query) &&
-                        Objects.equals(this.parallel, that.parallel);
+                        Objects.equals(this.parallel, that.parallel) &&
+                        Objects.equals(this.coalesce, that.coalesce) &&
+                        Objects.equals(this.ticket, that.ticket);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(query, parallel);
+        return Objects.hash(query, parallel, coalesce, ticket);
     }
 
     @Override
@@ -107,6 +146,8 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
         return "Command{" +
                 "query=" + query +
                 ", parallel=" + parallel +
+                ", coalesce=" + coalesce +
+                ", ticket=" + ticket +
                 '}';
     }
     // java serialization
@@ -154,7 +195,9 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
     {
         return
                 message.query != null
-                        && message.parallel != null;
+                        && message.parallel != null
+                        && message.coalesce != null
+                        && message.ticket != null;
     }
 
     public void mergeFrom(Input input, Command message) throws IOException
@@ -170,6 +213,12 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
                     break;
                 case 2:
                     message.parallel = input.readBool();
+                    break;
+                case 3:
+                    message.coalesce = input.readBool();
+                    break;
+                case 4:
+                    message.ticket = input.readBytes();
                     break;
                 default:
                     input.handleUnknownField(number, this);
@@ -187,6 +236,14 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
         if(message.parallel == null)
             throw new UninitializedMessageException(message);
         output.writeBool(2, message.parallel, false);
+
+        if(message.coalesce == null)
+            throw new UninitializedMessageException(message);
+        output.writeBool(3, message.coalesce, false);
+
+        if(message.ticket == null)
+            throw new UninitializedMessageException(message);
+        output.writeBytes(4, message.ticket, false);
     }
 
     public String getFieldName(int number)
@@ -195,6 +252,8 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
         {
             case 1: return "query";
             case 2: return "parallel";
+            case 3: return "coalesce";
+            case 4: return "ticket";
             default: return null;
         }
     }
@@ -210,6 +269,8 @@ public final class Command  implements Externalizable, Message<Command>, Schema<
     {
         __fieldMap.put("query", 1);
         __fieldMap.put("parallel", 2);
+        __fieldMap.put("coalesce", 3);
+        __fieldMap.put("ticket", 4);
     }
 
 
