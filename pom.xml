@@ -9,7 +9,7 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <dremio.version>3.1.10-201904162146020182-adf690d</dremio.version>
+        <dremio.version>3.2.4-201906051751050278-1bcce62</dremio.version>
         <arrow.version>0.14.0-SNAPSHOT</arrow.version>
         <spark.version>2.4.2</spark.version>
         <dep.slf4j.version>1.7.25</dep.slf4j.version>

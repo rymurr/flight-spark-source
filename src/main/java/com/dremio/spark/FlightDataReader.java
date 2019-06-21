@@ -24,7 +24,7 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
             String defaultHost,
             int defaultPort) {
         this.allocator = new RootAllocator();
-        client = new FlightClient(this.allocator, new Location(defaultHost, defaultPort)); //todo multiple locations
+        client = FlightClient.builder(this.allocator, Location.forGrpcInsecure(defaultHost, defaultPort)).build(); //todo multiple locations
         client.authenticateBasic("dremio", "dremio123");
         stream = client.getStream(new Ticket(ticket));
     }

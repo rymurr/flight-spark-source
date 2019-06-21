@@ -3,6 +3,7 @@ package com.dremio.spark;
 import com.dremio.proto.flight.commands.Command;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
+import io.protostuff.ByteString;
 import io.protostuff.LinkedBuffer;
 import io.protostuff.ProtostuffIOUtil;
 import org.apache.arrow.flight.FlightClient;
@@ -51,7 +52,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     private Filter[] pushed;
 
     public FlightDataSourceReader(DataSourceOptions dataSourceOptions, BufferAllocator allocator) {
-        defaultLocation = new Location(
+        defaultLocation = Location.forGrpcInsecure(
                 dataSourceOptions.get("host").orElse("localhost"),
                 dataSourceOptions.getInt("port", 47470)
         );
@@ -72,7 +73,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
 
     private FlightDescriptor getDescriptor(boolean isSql, String path) {
         String query = (!isSql) ? ("select * from " + path) : path;
-        byte[] message = ProtostuffIOUtil.toByteArray(new Command(query , parallel), Command.getSchema(), buffer);
+        byte[] message = ProtostuffIOUtil.toByteArray(new Command(query , parallel, false, ByteString.EMPTY), Command.getSchema(), buffer);
         buffer.clear();
         return FlightDescriptor.command(message);
     }
@@ -155,13 +156,31 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
 
     @Override
     public List<InputPartition<ColumnarBatch>> planBatchInputPartitions() {
+        if (parallel) {
+            return planBatchInputPartitionsParallel();
+        }
+        return planBatchInputPartitionsSerial(info);
+    }
+
+    private List<InputPartition<ColumnarBatch>> planBatchInputPartitionsParallel() {
+        byte[] message = ProtostuffIOUtil.toByteArray(new Command("", true, true, ByteString.copyFrom(info.getEndpoints().get(0).getTicket().getBytes())), Command.getSchema(), buffer);
+        buffer.clear();
+        try (FlightClient client = clientFactory.apply()) {
+            FlightInfo info = client.getInfo(FlightDescriptor.command(message));
+            return planBatchInputPartitionsSerial(info);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private List<InputPartition<ColumnarBatch>> planBatchInputPartitionsSerial(FlightInfo info) {
         return info.getEndpoints().stream().map(endpoint -> {
             Location location = (endpoint.getLocations().isEmpty()) ?
-                    new Location(defaultLocation.getHost(), defaultLocation.getPort()) :
+                    Location.forGrpcInsecure(defaultLocation.getUri().getHost(), defaultLocation.getUri().getPort()) :
                     endpoint.getLocations().get(0);
             return new FlightDataReaderFactory(endpoint.getTicket().getBytes(),
-                    location.getHost(),
-                    location.getPort());
+                    location.getUri().getHost(),
+                    location.getUri().getPort());
         }).collect(Collectors.toList());
     }
 

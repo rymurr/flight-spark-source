@@ -18,7 +18,7 @@ public class FlightClientFactory {
     }
 
     public FlightClient apply() {
-        FlightClient client = new FlightClient(allocator, defaultLocation);
+        FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
         client.authenticateBasic(username, password);
         return client;
 
