@@ -21,3 +21,4 @@ to generic Flight sources
 * write interface to use `DoPut` to write Spark dataframes back to an Arrow Flight endpoint
 * leverage the transactional capabilities of the Spark Source V2 interface
 * proper benchmark test
+* CI build & tests
