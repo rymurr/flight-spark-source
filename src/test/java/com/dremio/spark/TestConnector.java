@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2019 Ryan Murray
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.dremio.spark;
 
 import org.apache.spark.SparkConf;
@@ -96,44 +111,44 @@ public class TestConnector {
     @Test
     public void testParallel() {
         String easySql = "select * from sys.options";
-        String hardSql = "select * from \"@dremio\".test";
-        Dataset<Row> df = csc.readSql(hardSql, true);
+//        String hardSql = "select * from \"@dremio\".test";
+        Dataset<Row> df = csc.readSql(easySql, true);
         SizeConsumer c = new SizeConsumer();
         SizeConsumer c2 = new SizeConsumer();
         Dataset<Row> dff = df.select("bid", "ask", "symbol").filter(df.col("symbol").equalTo("USDCAD"));
         dff.toLocalIterator().forEachRemaining(c);
         long width = c.width;
         long length = c.length;
-        csc.readSql(hardSql, true).toLocalIterator().forEachRemaining(c2);
+        csc.readSql(easySql, true).toLocalIterator().forEachRemaining(c2);
         long widthOriginal = c2.width;
         long lengthOriginal = c2.length;
         Assert.assertTrue(width < widthOriginal);
         Assert.assertTrue(length < lengthOriginal);
     }
 
-    @Ignore
-    @Test
-    public void testSpeed() {
-        long[] jdbcT = new long[16];
-        long[] flightT = new long[16];
-        Properties connectionProperties = new Properties();
-        connectionProperties.put("user", "dremio");
-        connectionProperties.put("password", "dremio123");
-        long jdbcC = 0;
-        long flightC = 0;
-        for (int i=0;i<4;i++) {
-            long now = System.currentTimeMillis();
-            Dataset<Row> jdbc = SQLContext.getOrCreate(sc.sc()).read().jdbc("jdbc:dremio:direct=localhost:31010", "\"@dremio\".sdd", connectionProperties);
-            jdbcC = jdbc.count();
-            long then = System.currentTimeMillis();
-            flightC = csc.read("@dremio.sdd").count();
-            long andHereWeAre = System.currentTimeMillis();
-            jdbcT[i] = then-now;
-            flightT[i] = andHereWeAre - then;
-        }
-        for (int i =0;i<16;i++) {
-            System.out.println("Trial " + i + ": Flight took " + flightT[i] + " and jdbc took " + jdbcT[i]);
-        }
-        System.out.println("Fetched " + jdbcC + " row from jdbc and " + flightC + " from flight");
-    }
+//    @Ignore
+//    @Test
+//    public void testSpeed() {
+//        long[] jdbcT = new long[16];
+//        long[] flightT = new long[16];
+//        Properties connectionProperties = new Properties();
+//        connectionProperties.put("user", "dremio");
+//        connectionProperties.put("password", "dremio123");
+//        long jdbcC = 0;
+//        long flightC = 0;
+//        for (int i=0;i<4;i++) {
+//            long now = System.currentTimeMillis();
+//            Dataset<Row> jdbc = SQLContext.getOrCreate(sc.sc()).read().jdbc("jdbc:dremio:direct=localhost:31010", "\"@dremio\".sdd", connectionProperties);
+//            jdbcC = jdbc.count();
+//            long then = System.currentTimeMillis();
+//            flightC = csc.read("@dremio.sdd").count();
+//            long andHereWeAre = System.currentTimeMillis();
+//            jdbcT[i] = then-now;
+//            flightT[i] = andHereWeAre - then;
+//        }
+//        for (int i =0;i<16;i++) {
+//            System.out.println("Trial " + i + ": Flight took " + flightT[i] + " and jdbc took " + jdbcT[i]);
+//        }
+//        System.out.println("Fetched " + jdbcC + " row from jdbc and " + flightC + " from flight");
+//    }
 }
