@@ -26,8 +26,8 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
-    <arrow.version>0.15.0</arrow.version>
-    <spark.version>2.4.2</spark.version>
+    <arrow.version>0.15.1</arrow.version>
+    <spark.version>2.4.4</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <protostuff.version>1.4.4</protostuff.version>
   </properties>
@@ -228,6 +228,7 @@ limitations under the License.
             <exclude>**/node_modules/**</exclude>
             <exclude>**/.idea/**</exclude>
             <exclude>**/db/**</exclude>
+            <exclude>**/*.ipynb</exclude>
           </excludes>
           <mapping>
             <java>SLASHSTAR_STYLE</java>
@@ -303,6 +304,98 @@ limitations under the License.
           <target>8</target>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>scala-compile-first</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>add-source</goal>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>scala-test-compile</id>
+            <phase>process-test-resources</phase>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <includes>
+                  <include>org.apache.arrow:arrow-flight:shaded</include>
+                  <include>org.apache.arrow:arrow-vector</include>
+                  <include>org.apache.arrow:arrow-format</include>
+                  <include>org.apache.arrow:arrow-memory</include>
+                  <include>com.google.flatbuffers:flatbuffers-java</include>
+                  <include>io.grpc:*</include>
+                  <include>io.netty:*</include>
+                  <include>io.opencensus:*</include>
+                  <include>com.google.code.gson:gson</include>
+                  <include>com.google.code.findbugs:jsr305</include>
+                  <include>com.google.code.errorprone:error_prone_annotations</include>
+                  <include>com.google.api.grpc:proto-google-common-protos</include>
+                  <include>com.google.protobuf:protobuf-java</include>
+                  <include>com.google.guava:guava</include>
+                </includes>
+                <excludes>
+                  <exclude>io.netty:netty-transport-native-unix-common</exclude>
+                  <exclude>io.netty:netty-transport-native-epoll</exclude>
+                </excludes>
+              </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>cdap.com.google.protobuf</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.arrow</pattern>
+                  <shadedPattern>cdap.org.apache.arrow</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.grpc</pattern>
+                  <shadedPattern>cdap.io.grpc</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.netty</pattern>
+                  <shadedPattern>cdap.io.netty</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.google</pattern>
+                  <shadedPattern>cdap.com.google</shadedPattern>
+                </relocation>
+                <!-- Entries to relocate netty native libraries  -->
+                <relocation>
+                  <pattern>META-INF.native.libnetty_</pattern>
+                  <shadedPattern>META-INF.native.libcdap_netty_</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>META-INF.native.netty_</pattern>
+                  <shadedPattern>META-INF.native.cdap_netty_</shadedPattern>
+                </relocation>
+
+              </relocations>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded</shadedClassifierName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
@@ -328,6 +421,14 @@ limitations under the License.
           <groupId>log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>arrow-format</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>arrow-vector</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -351,6 +452,14 @@ limitations under the License.
           <groupId>javax.servlet</groupId>
           <artifactId>servlet-api</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>arrow-format</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.arrow</groupId>
+          <artifactId>arrow-vector</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -359,7 +468,18 @@ limitations under the License.
       <version>${arrow.version}</version>
       <classifier>shaded</classifier>
     </dependency>
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>2.11.6</version>
+    </dependency>
 
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_2.11</artifactId>
+      <version>2.2.5</version>
+      <scope>compile</scope>
+    </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
