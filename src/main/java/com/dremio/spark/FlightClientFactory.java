@@ -29,7 +29,7 @@ public class FlightClientFactory {
     this.allocator = allocator;
     this.defaultLocation = defaultLocation;
     this.username = username;
-    this.password = password;
+    this.password = password.equals("$NULL$") ? null : password;
   }
 
   public FlightClient apply() {
@@ -39,4 +39,11 @@ public class FlightClientFactory {
 
   }
 
+  public String getUsername() {
+    return username;
+  }
+
+  public String getPassword() {
+    return password;
+  }
 }

@@ -24,11 +24,13 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
-import org.apache.spark.sql.vectorized.ArrowColumnVector;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
+  private final Logger logger = LoggerFactory.getLogger(FlightDataReader.class);
   private final FlightClient client;
   private final FlightStream stream;
   private final BufferAllocator allocator;
@@ -36,10 +38,11 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
   public FlightDataReader(
     byte[] ticket,
     String defaultHost,
-    int defaultPort) {
+    int defaultPort, String username, String password) {
     this.allocator = new RootAllocator();
-    client = FlightClient.builder(this.allocator, Location.forGrpcInsecure(defaultHost, defaultPort)).build(); //todo multiple locations
-    client.authenticateBasic("dremio", "dremio123");
+    logger.warn("setting up a data reader at host {} and port {} with ticket {}", defaultHost, defaultPort, new String(ticket));
+    client = FlightClient.builder(this.allocator, Location.forGrpcInsecure(defaultHost, defaultPort)).build(); //todo multiple locations & ssl
+    client.authenticateBasic(username, password);
     stream = client.getStream(new Ticket(ticket));
   }
 
@@ -53,7 +56,7 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
     ColumnarBatch batch = new ColumnarBatch(
       stream.getRoot().getFieldVectors()
         .stream()
-        .map(ArrowColumnVector::new)
+        .map(ModernArrowColumnVector::new)
         .toArray(ColumnVector[]::new)
     );
     batch.setNumRows(stream.getRoot().getRowCount());

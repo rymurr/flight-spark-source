@@ -24,14 +24,18 @@ public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
   private byte[] ticket;
   private final String defaultHost;
   private final int defaultPort;
+  private final String username;
+  private final String password;
 
   public FlightDataReaderFactory(
     byte[] ticket,
     String defaultHost,
-    int defaultPort) {
+    int defaultPort, String username, String password) {
     this.ticket = ticket;
     this.defaultHost = defaultHost;
     this.defaultPort = defaultPort;
+    this.username = username;
+    this.password = password;
   }
 
   @Override
@@ -41,7 +45,7 @@ public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
 
   @Override
   public InputPartitionReader<ColumnarBatch> createPartitionReader() {
-    return new FlightDataReader(ticket, defaultHost, defaultPort);
+    return new FlightDataReader(ticket, defaultHost, defaultPort, username, password);
   }
 
 }

@@ -33,7 +33,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.spark.sql.sources.EqualTo;
 import org.apache.spark.sql.sources.Filter;
+import org.apache.spark.sql.sources.GreaterThan;
+import org.apache.spark.sql.sources.GreaterThanOrEqual;
 import org.apache.spark.sql.sources.IsNotNull;
+import org.apache.spark.sql.sources.LessThan;
+import org.apache.spark.sql.sources.LessThanOrEqual;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
@@ -186,13 +190,16 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
   }
 
   private List<InputPartition<ColumnarBatch>> planBatchInputPartitionsSerial(FlightInfo info) {
+    LOGGER.warn("planning partitions for endpoints {}", Joiner.on(", ").join(info.getEndpoints().stream().map(e -> e.getLocations().get(0).getUri().toString()).collect(Collectors.toList())));
     return info.getEndpoints().stream().map(endpoint -> {
       Location location = (endpoint.getLocations().isEmpty()) ?
         Location.forGrpcInsecure(defaultLocation.getUri().getHost(), defaultLocation.getUri().getPort()) :
         endpoint.getLocations().get(0);
       return new FlightDataReaderFactory(endpoint.getTicket().getBytes(),
         location.getUri().getHost(),
-        location.getUri().getPort());
+        location.getUri().getPort(),
+        clientFactory.getUsername(),
+        clientFactory.getPassword());
     }).collect(Collectors.toList());
   }
 
@@ -238,6 +245,14 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         filterStr.add(String.format("isnotnull(\"%s\")", ((IsNotNull) filter).attribute()));
       } else if (filter instanceof EqualTo) {
         filterStr.add(String.format("\"%s\" = %s", ((EqualTo) filter).attribute(), valueToString(((EqualTo) filter).value())));
+      } else if (filter instanceof GreaterThan) {
+        filterStr.add(String.format("\"%s\" > %s", ((GreaterThan) filter).attribute(), valueToString(((GreaterThan) filter).value())));
+      } else if (filter instanceof GreaterThanOrEqual) {
+        filterStr.add(String.format("\"%s\" <= %s", ((GreaterThanOrEqual) filter).attribute(), valueToString(((GreaterThanOrEqual) filter).value())));
+      } else if (filter instanceof LessThan) {
+        filterStr.add(String.format("\"%s\" < %s", ((LessThan) filter).attribute(), valueToString(((LessThan) filter).value())));
+      } else if (filter instanceof LessThanOrEqual) {
+        filterStr.add(String.format("\"%s\" <= %s", ((LessThanOrEqual) filter).attribute(), valueToString(((LessThanOrEqual) filter).value())));
       }
     }
     return WHERE_JOINER.join(filterStr);
@@ -254,6 +269,18 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     if (filter instanceof IsNotNull) {
       return true;
     } else if (filter instanceof EqualTo) {
+      return true;
+    }
+    if (filter instanceof GreaterThan) {
+      return true;
+    }
+    if (filter instanceof GreaterThanOrEqual) {
+      return true;
+    }
+    if (filter instanceof LessThan) {
+      return true;
+    }
+    if (filter instanceof LessThanOrEqual) {
       return true;
     }
     LOGGER.error("Cant push filter of type " + filter.toString());
