@@ -15,140 +15,273 @@
  */
 package com.dremio.spark;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import org.apache.arrow.flight.Action;
+import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
+import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightTestUtil;
+import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.Result;
+import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SQLContext;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import org.apache.spark.api.java.JavaSparkContext;
-
-import java.util.Properties;
-import java.util.function.Consumer;
+import com.google.common.collect.ImmutableList;
 
 public class TestConnector {
-    private static SparkConf conf;
-    private static JavaSparkContext sc;
-    private static FlightSparkContext csc;
+  private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+  private static Location location;
+  private static FlightServer server;
+  private static SparkConf conf;
+  private static JavaSparkContext sc;
+  private static FlightSparkContext csc;
 
-    @BeforeClass
-    public static void setUp() throws Exception {
-        conf = new SparkConf()
-                .setAppName("flightTest")
-                .setMaster("local[*]")
-                .set("spark.driver.allowMultipleContexts","true")
-                .set("spark.flight.endpoint.host", "localhost")
-                .set("spark.flight.endpoint.port", "47470")
-                .set("spark.flight.auth.username", "dremio")
-                .set("spark.flight.auth.password", "dremio123")
-                ;
-        sc = new JavaSparkContext(conf);
-
-        csc = FlightSparkContext.flightContext(sc);
-    }
-
-    @AfterClass
-    public static void tearDown() throws Exception  {
-        sc.close();
-    }
-
-    @Test
-    public void testConnect() {
-        csc.read("sys.options");
-    }
-
-    @Test
-    public void testRead() {
-        long count = csc.read("sys.options").count();
-        Assert.assertTrue(count > 0);
-    }
-
-    @Test
-    public void testReadWithQuotes() {
-        long count = csc.read("\"sys\".options").count();
-        Assert.assertTrue(count > 0);
-    }
-
-    @Test
-    public void testSql() {
-        long count = csc.readSql("select * from \"sys\".options").count();
-        Assert.assertTrue(count > 0);
-    }
-
-    @Test
-    public void testFilter() {
-        Dataset<Row> df = csc.readSql("select * from \"sys\".options");
-        long count = df.filter(df.col("kind").equalTo("LONG")).count();
-        long countOriginal = csc.readSql("select * from \"sys\".options").count();
-        Assert.assertTrue(count < countOriginal);
-    }
-
-    private static class SizeConsumer implements Consumer<Row> {
-        private int length = 0;
-        private int width = 0;
+  @BeforeClass
+  public static void setUp() throws Exception {
+    server = FlightTestUtil.getStartedServer(location -> FlightServer.builder(allocator, location, new TestProducer()).authHandler(
+      new ServerAuthHandler() {
+        @Override
+        public Optional<String> isValid(byte[] token) {
+          return Optional.of("xxx");
+        }
 
         @Override
-        public void accept(Row row) {
-            length+=1;
-            width = row.length();
+        public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
+          incoming.next();
+          outgoing.send(new byte[0]);
+          return true;
         }
+      }).build()
+    );
+    location = server.getLocation();
+    conf = new SparkConf()
+      .setAppName("flightTest")
+      .setMaster("local[*]")
+      .set("spark.driver.allowMultipleContexts", "true")
+      .set("spark.flight.endpoint.host", location.getUri().getHost())
+      .set("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
+      .set("spark.flight.auth.username", "xxx")
+      .set("spark.flight.auth.password", "yyy")
+    ;
+    sc = new JavaSparkContext(conf);
+    csc = FlightSparkContext.flightContext(sc);
+  }
+
+  @AfterClass
+  public static void tearDown() throws Exception {
+    AutoCloseables.close(server, allocator, sc);
+  }
+
+  @Test
+  public void testConnect() {
+    csc.read("test.table");
+  }
+
+  @Test
+  public void testRead() {
+    long count = csc.read("test.table").count();
+    Assert.assertEquals(20, count);
+  }
+
+  @Test
+  public void testSql() {
+    long count = csc.readSql("select * from test.table").count();
+    Assert.assertEquals(20, count);
+  }
+
+  @Test
+  public void testFilter() {
+    Dataset<Row> df = csc.readSql("select * from test.table");
+    long count = df.filter(df.col("symbol").equalTo("USDCAD")).count();
+    long countOriginal = csc.readSql("select * from test.table").count();
+    Assert.assertTrue(count < countOriginal);
+  }
+
+  private static class SizeConsumer implements Consumer<Row> {
+    private int length = 0;
+    private int width = 0;
+
+    @Override
+    public void accept(Row row) {
+      length += 1;
+      width = row.length();
+    }
+  }
+
+  @Test
+  public void testProject() {
+    Dataset<Row> df = csc.readSql("select * from test.table");
+    SizeConsumer c = new SizeConsumer();
+    df.select("bid", "ask", "symbol").toLocalIterator().forEachRemaining(c);
+    long count = c.width;
+    long countOriginal = csc.readSql("select * from test.table").columns().length;
+    Assert.assertTrue(count < countOriginal);
+  }
+
+  @Test
+  public void testParallel() {
+    String easySql = "select * from test.table";
+    SizeConsumer c = new SizeConsumer();
+    csc.readSql(easySql, true).toLocalIterator().forEachRemaining(c);
+    long width = c.width;
+    long length = c.length;
+    Assert.assertEquals(5, width);
+    Assert.assertEquals(40, length);
+  }
+
+  private static class TestProducer extends NoOpFlightProducer {
+    private boolean parallel = false;
+
+    @Override
+    public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
+      parallel = true;
+      listener.onNext(new Result("ok".getBytes()));
+      listener.onCompleted();
     }
 
-    @Test
-    public void testProject() {
-        Dataset<Row> df = csc.readSql("select * from \"sys\".options");
-        SizeConsumer c = new SizeConsumer();
-        df.select("name", "kind", "type").toLocalIterator().forEachRemaining(c);
-        long count = c.width;
-        long countOriginal = csc.readSql("select * from \"sys\".options").columns().length;
-        Assert.assertTrue(count < countOriginal);
+    @Override
+    public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+      Schema schema;
+      List<FlightEndpoint> endpoints;
+      if (parallel) {
+        endpoints = ImmutableList.of(new FlightEndpoint(new Ticket(descriptor.getCommand()), location),
+          new FlightEndpoint(new Ticket(descriptor.getCommand()), location));
+      } else {
+        endpoints = ImmutableList.of(new FlightEndpoint(new Ticket(descriptor.getCommand()), location));
+      }
+      if (new String(descriptor.getCommand()).equals("select \"bid\", \"ask\", \"symbol\" from (select * from test.table))")) {
+        schema = new Schema(ImmutableList.of(
+          Field.nullable("bid", Types.MinorType.FLOAT8.getType()),
+          Field.nullable("ask", Types.MinorType.FLOAT8.getType()),
+          Field.nullable("symbol", Types.MinorType.VARCHAR.getType()))
+        );
+
+      } else {
+        schema = new Schema(ImmutableList.of(
+          Field.nullable("bid", Types.MinorType.FLOAT8.getType()),
+          Field.nullable("ask", Types.MinorType.FLOAT8.getType()),
+          Field.nullable("symbol", Types.MinorType.VARCHAR.getType()),
+          Field.nullable("bidsize", Types.MinorType.BIGINT.getType()),
+          Field.nullable("asksize", Types.MinorType.BIGINT.getType()))
+        );
+      }
+      return new FlightInfo(schema, descriptor, endpoints, 1000000, 10);
     }
 
-    @Test
-    public void testParallel() {
-        String easySql = "select * from sys.options";
-//        String hardSql = "select * from \"@dremio\".test";
-        Dataset<Row> df = csc.readSql(easySql, true);
-        SizeConsumer c = new SizeConsumer();
-        SizeConsumer c2 = new SizeConsumer();
-        Dataset<Row> dff = df.select("bid", "ask", "symbol").filter(df.col("symbol").equalTo("USDCAD"));
-        dff.toLocalIterator().forEachRemaining(c);
-        long width = c.width;
-        long length = c.length;
-        csc.readSql(easySql, true).toLocalIterator().forEachRemaining(c2);
-        long widthOriginal = c2.width;
-        long lengthOriginal = c2.length;
-        Assert.assertTrue(width < widthOriginal);
-        Assert.assertTrue(length < lengthOriginal);
+    @Override
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
+      final int size = (new String(ticket.getBytes()).contains("USDCAD")) ? 5 : 10;
+
+      if (new String(ticket.getBytes()).equals("select \"bid\", \"ask\", \"symbol\" from (select * from test.table))")) {
+        Float8Vector b = new Float8Vector("bid", allocator);
+        Float8Vector a = new Float8Vector("ask", allocator);
+        VarCharVector s = new VarCharVector("symbol", allocator);
+
+        VectorSchemaRoot root = VectorSchemaRoot.of(b, a, s);
+        listener.start(root);
+
+        //batch 1
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          b.set(i, (double) i);
+          a.set(i, (double) i);
+          s.set(i, (i % 2 == 0) ? new Text("USDCAD") : new Text("EURUSD"));
+        }
+        b.setValueCount(size);
+        a.setValueCount(size);
+        s.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+
+        // batch 2
+
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          b.set(i, (double) i);
+          a.set(i, (double) i);
+          s.set(i, (i % 2 == 0) ? new Text("USDCAD") : new Text("EURUSD"));
+        }
+        b.setValueCount(size);
+        a.setValueCount(size);
+        s.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+        root.clear();
+        listener.completed();
+      } else {
+        BigIntVector bs = new BigIntVector("bidsize", allocator);
+        BigIntVector as = new BigIntVector("asksize", allocator);
+        Float8Vector b = new Float8Vector("bid", allocator);
+        Float8Vector a = new Float8Vector("ask", allocator);
+        VarCharVector s = new VarCharVector("symbol", allocator);
+
+        VectorSchemaRoot root = VectorSchemaRoot.of(b, a, s, bs, as);
+        listener.start(root);
+
+        //batch 1
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          bs.set(i, (long) i);
+          as.set(i, (long) i);
+          b.set(i, (double) i);
+          a.set(i, (double) i);
+          s.set(i, (i % 2 == 0) ? new Text("USDCAD") : new Text("EURUSD"));
+        }
+        bs.setValueCount(size);
+        as.setValueCount(size);
+        b.setValueCount(size);
+        a.setValueCount(size);
+        s.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+
+        // batch 2
+
+        root.allocateNew();
+        for (int i = 0; i < size; i++) {
+          bs.set(i, (long) i);
+          as.set(i, (long) i);
+          b.set(i, (double) i);
+          a.set(i, (double) i);
+          s.set(i, (i % 2 == 0) ? new Text("USDCAD") : new Text("EURUSD"));
+        }
+        bs.setValueCount(size);
+        as.setValueCount(size);
+        b.setValueCount(size);
+        a.setValueCount(size);
+        s.setValueCount(size);
+        root.setRowCount(size);
+        listener.putNext();
+        root.clear();
+        listener.completed();
+      }
     }
 
-//    @Ignore
-//    @Test
-//    public void testSpeed() {
-//        long[] jdbcT = new long[16];
-//        long[] flightT = new long[16];
-//        Properties connectionProperties = new Properties();
-//        connectionProperties.put("user", "dremio");
-//        connectionProperties.put("password", "dremio123");
-//        long jdbcC = 0;
-//        long flightC = 0;
-//        for (int i=0;i<4;i++) {
-//            long now = System.currentTimeMillis();
-//            Dataset<Row> jdbc = SQLContext.getOrCreate(sc.sc()).read().jdbc("jdbc:dremio:direct=localhost:31010", "\"@dremio\".sdd", connectionProperties);
-//            jdbcC = jdbc.count();
-//            long then = System.currentTimeMillis();
-//            flightC = csc.read("@dremio.sdd").count();
-//            long andHereWeAre = System.currentTimeMillis();
-//            jdbcT[i] = then-now;
-//            flightT[i] = andHereWeAre - then;
-//        }
-//        for (int i =0;i<16;i++) {
-//            System.out.println("Trial " + i + ": Flight took " + flightT[i] + " and jdbc took " + jdbcT[i]);
-//        }
-//        System.out.println("Fetched " + jdbcC + " row from jdbc and " + flightC + " from flight");
-//    }
+
+  }
 }

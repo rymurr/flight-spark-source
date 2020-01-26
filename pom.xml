@@ -29,7 +29,6 @@
     <arrow.version>0.15.1</arrow.version>
     <spark.version>2.4.4</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <protostuff.version>1.4.4</protostuff.version>
   </properties>
   <build>
     <extensions>
@@ -484,6 +483,13 @@ limitations under the License.
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-flight</artifactId>
+      <version>${arrow.version}</version>
+      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
 
