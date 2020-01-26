@@ -30,7 +30,7 @@
  * limitations under the License.
  */
 
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.vector.*;
