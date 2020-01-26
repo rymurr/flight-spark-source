@@ -65,13 +65,12 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
 
   @Override
   public void close() throws IOException {
-
-//        try {
-//            client.close();
-//            stream.close();
+        try {
+            client.close();
+            stream.close();
 //            allocator.close();
-//        } catch (Exception e) {
-//            throw new IOException(e);
-//        }
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
   }
 }

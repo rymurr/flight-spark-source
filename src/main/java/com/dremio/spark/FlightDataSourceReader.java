@@ -191,7 +191,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
 
   private List<InputPartition<ColumnarBatch>> planBatchInputPartitionsSerial(FlightInfo info) {
     LOGGER.warn("planning partitions for endpoints {}", Joiner.on(", ").join(info.getEndpoints().stream().map(e -> e.getLocations().get(0).getUri().toString()).collect(Collectors.toList())));
-    return info.getEndpoints().stream().map(endpoint -> {
+    List<InputPartition<ColumnarBatch>> batches = info.getEndpoints().stream().map(endpoint -> {
       Location location = (endpoint.getLocations().isEmpty()) ?
         Location.forGrpcInsecure(defaultLocation.getUri().getHost(), defaultLocation.getUri().getPort()) :
         endpoint.getLocations().get(0);
@@ -201,6 +201,8 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         clientFactory.getUsername(),
         clientFactory.getPassword());
     }).collect(Collectors.toList());
+    LOGGER.info("Created {} batches from arrow endpoints", batches.size());
+    return batches;
   }
 
   @Override
