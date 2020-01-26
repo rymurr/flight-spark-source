@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
 import java.util.Iterator;
 import java.util.List;
@@ -66,7 +66,6 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
   private StructType schema;
   private final Location defaultLocation;
   private final FlightClientFactory clientFactory;
-  private final boolean parallel;
   private String sql;
   private Filter[] pushed;
 
@@ -78,16 +77,12 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     clientFactory = new FlightClientFactory(allocator,
       defaultLocation,
       dataSourceOptions.get("username").orElse("anonymous"),
-      dataSourceOptions.get("password").orElse(null)
+      dataSourceOptions.get("password").orElse(null),
+      dataSourceOptions.getBoolean("parallel", false)
     );
-    parallel = dataSourceOptions.getBoolean("parallel", false);
     sql = dataSourceOptions.get("path").orElse("");
     descriptor = getDescriptor(sql);
     try (FlightClient client = clientFactory.apply()) {
-      if (parallel) {
-        Iterator<Result> res = client.doAction(new Action("PARALLEL"));
-        res.forEachRemaining(Object::toString);
-      }
       info = client.getSchema(descriptor);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
@@ -140,7 +135,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         } else if (bitWidth == 64) {
           return DataTypes.LongType;
         }
-        throw new UnsupportedOperationException("unknow int type with bitwidth " + bitWidth);
+        throw new UnsupportedOperationException("unknown int type with bitwidth " + bitWidth);
       case FloatingPoint:
         ArrowType.FloatingPoint floatType = (ArrowType.FloatingPoint) fieldType.getType();
         FloatingPointPrecision precision = floatType.getPrecision();
@@ -199,7 +194,8 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         location.getUri().getHost(),
         location.getUri().getPort(),
         clientFactory.getUsername(),
-        clientFactory.getPassword());
+        clientFactory.getPassword(),
+        clientFactory.isParallel());
     }).collect(Collectors.toList());
     LOGGER.info("Created {} batches from arrow endpoints", batches.size());
     return batches;

@@ -13,10 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
+import java.util.Iterator;
+
+import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.Result;
 import org.apache.arrow.memory.BufferAllocator;
 
 public class FlightClientFactory {
@@ -24,17 +28,23 @@ public class FlightClientFactory {
   private Location defaultLocation;
   private final String username;
   private final String password;
+  private boolean parallel;
 
-  public FlightClientFactory(BufferAllocator allocator, Location defaultLocation, String username, String password) {
+  public FlightClientFactory(BufferAllocator allocator, Location defaultLocation, String username, String password, boolean parallel) {
     this.allocator = allocator;
     this.defaultLocation = defaultLocation;
     this.username = username;
     this.password = password.equals("$NULL$") ? null : password;
+    this.parallel = parallel;
   }
 
   public FlightClient apply() {
     FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
     client.authenticateBasic(username, password);
+    if (parallel) {
+      Iterator<Result> res = client.doAction(new Action("PARALLEL"));
+      res.forEachRemaining(Object::toString);
+    }
     return client;
 
   }
@@ -45,5 +55,9 @@ public class FlightClientFactory {
 
   public String getPassword() {
     return password;
+  }
+
+  public boolean isParallel() {
+    return parallel;
   }
 }

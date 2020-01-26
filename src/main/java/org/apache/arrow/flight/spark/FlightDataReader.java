@@ -13,13 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
 import java.io.IOException;
+import java.util.Iterator;
 
+import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -38,11 +41,15 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
   public FlightDataReader(
     byte[] ticket,
     String defaultHost,
-    int defaultPort, String username, String password) {
+    int defaultPort, String username, String password, boolean parallel) {
     this.allocator = new RootAllocator();
     logger.warn("setting up a data reader at host {} and port {} with ticket {}", defaultHost, defaultPort, new String(ticket));
     client = FlightClient.builder(this.allocator, Location.forGrpcInsecure(defaultHost, defaultPort)).build(); //todo multiple locations & ssl
     client.authenticateBasic(username, password);
+    if (parallel) {
+      Iterator<Result> res = client.doAction(new Action("PARALLEL"));
+      res.forEachRemaining(Object::toString);
+    }
     stream = client.getStream(new Ticket(ticket));
   }
 

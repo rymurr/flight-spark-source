@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -31,7 +31,7 @@ public class FlightSparkContext {
   private FlightSparkContext(SparkContext sc, SparkConf conf) {
     SQLContext sqlContext = SQLContext.getOrCreate(sc);
     this.conf = conf;
-    reader = sqlContext.read().format("com.dremio.spark");
+    reader = sqlContext.read().format("org.apache.arrow.flight.spark");
   }
 
   public static FlightSparkContext flightContext(JavaSparkContext sc) {

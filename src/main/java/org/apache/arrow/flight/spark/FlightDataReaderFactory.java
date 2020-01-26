@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.dremio.spark;
+package org.apache.arrow.flight.spark;
 
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
@@ -26,16 +26,18 @@ public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
   private final int defaultPort;
   private final String username;
   private final String password;
+  private boolean parallel;
 
   public FlightDataReaderFactory(
     byte[] ticket,
     String defaultHost,
-    int defaultPort, String username, String password) {
+    int defaultPort, String username, String password, boolean parallel) {
     this.ticket = ticket;
     this.defaultHost = defaultHost;
     this.defaultPort = defaultPort;
     this.username = username;
     this.password = password;
+    this.parallel = parallel;
   }
 
   @Override
@@ -45,7 +47,7 @@ public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
 
   @Override
   public InputPartitionReader<ColumnarBatch> createPartitionReader() {
-    return new FlightDataReader(ticket, defaultHost, defaultPort, username, password);
+    return new FlightDataReader(ticket, defaultHost, defaultPort, username, password, parallel);
   }
 
 }
