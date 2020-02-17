@@ -32,18 +32,34 @@
 
 package org.apache.arrow.flight.spark;
 
-import io.netty.buffer.ArrowBuf;
-import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.complex.*;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMilliVector;
+import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
-
 import org.apache.spark.annotation.InterfaceStability;
 import org.apache.spark.sql.execution.arrow.ModernArrowUtils;
-import org.apache.spark.sql.types.*;
+import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarArray;
 import org.apache.spark.sql.vectorized.ColumnarMap;
 import org.apache.spark.unsafe.types.UTF8String;
+
+import io.netty.buffer.ArrowBuf;
 
 /**
  * A column vector backed by Apache Arrow. Currently calendar interval type and map type are not
@@ -119,25 +135,33 @@ public final class ModernArrowColumnVector extends ColumnVector {
 
   @Override
   public Decimal getDecimal(int rowId, int precision, int scale) {
-    if (isNullAt(rowId)) return null;
+    if (isNullAt(rowId)) {
+      return null;
+    }
     return accessor.getDecimal(rowId, precision, scale);
   }
 
   @Override
   public UTF8String getUTF8String(int rowId) {
-    if (isNullAt(rowId)) return null;
+    if (isNullAt(rowId)) {
+      return null;
+    }
     return accessor.getUTF8String(rowId);
   }
 
   @Override
   public byte[] getBinary(int rowId) {
-    if (isNullAt(rowId)) return null;
+    if (isNullAt(rowId)) {
+      return null;
+    }
     return accessor.getBinary(rowId);
   }
 
   @Override
   public ColumnarArray getArray(int rowId) {
-    if (isNullAt(rowId)) return null;
+    if (isNullAt(rowId)) {
+      return null;
+    }
     return accessor.getArray(rowId);
   }
 
@@ -147,7 +171,9 @@ public final class ModernArrowColumnVector extends ColumnVector {
   }
 
   @Override
-  public ModernArrowColumnVector getChild(int ordinal) { return childColumns[ordinal]; }
+  public ModernArrowColumnVector getChild(int ordinal) {
+    return childColumns[ordinal];
+  }
 
   public ModernArrowColumnVector(ValueVector vector) {
     super(ModernArrowUtils.fromArrowField(vector.getField()));
@@ -174,8 +200,12 @@ public final class ModernArrowColumnVector extends ColumnVector {
       accessor = new BinaryAccessor((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       accessor = new DateAccessor((DateDayVector) vector);
+    } else if (vector instanceof DateMilliVector) {
+      accessor = new DateMilliAccessor((DateMilliVector) vector);
     } else if (vector instanceof TimeStampMicroTZVector) {
       accessor = new TimestampAccessor((TimeStampMicroTZVector) vector);
+    } else if (vector instanceof TimeStampMilliVector) {
+      accessor = new TimestampMilliAccessor((TimeStampMilliVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
@@ -188,6 +218,7 @@ public final class ModernArrowColumnVector extends ColumnVector {
         childColumns[i] = new ModernArrowColumnVector(structVector.getVectorById(i));
       }
     } else {
+      System.out.println(vector);
       throw new UnsupportedOperationException();
     }
   }
@@ -374,7 +405,9 @@ public final class ModernArrowColumnVector extends ColumnVector {
 
     @Override
     final Decimal getDecimal(int rowId, int precision, int scale) {
-      if (isNullAt(rowId)) return null;
+      if (isNullAt(rowId)) {
+        return null;
+      }
       return Decimal.apply(accessor.getObject(rowId), precision, scale);
     }
   }
@@ -432,9 +465,26 @@ public final class ModernArrowColumnVector extends ColumnVector {
     }
   }
 
+  private static class DateMilliAccessor extends ArrowVectorAccessor {
+
+    private final DateMilliVector accessor;
+    private final double val = 1.0 / (24. * 60. * 60. * 1000.);
+
+    DateMilliAccessor(DateMilliVector vector) {
+      super(vector);
+      this.accessor = vector;
+    }
+
+    @Override
+    final int getInt(int rowId) {
+      System.out.println(accessor.get(rowId) + " " + (accessor.get(rowId) * val) + " " + val);
+      return (int) (accessor.get(rowId) * val);
+    }
+  }
+
   private static class TimestampAccessor extends ArrowVectorAccessor {
 
-    private final TimeStampMicroTZVector accessor;
+    private final TimeStampVector accessor;
 
     TimestampAccessor(TimeStampMicroTZVector vector) {
       super(vector);
@@ -444,6 +494,21 @@ public final class ModernArrowColumnVector extends ColumnVector {
     @Override
     final long getLong(int rowId) {
       return accessor.get(rowId);
+    }
+  }
+
+  private static class TimestampMilliAccessor extends ArrowVectorAccessor {
+
+    private final TimeStampVector accessor;
+
+    TimestampMilliAccessor(TimeStampMilliVector vector) {
+      super(vector);
+      this.accessor = vector;
+    }
+
+    @Override
+    final long getLong(int rowId) {
+      return accessor.get(rowId) * 1000;
     }
   }
 
@@ -480,11 +545,10 @@ public final class ModernArrowColumnVector extends ColumnVector {
 
   /**
    * Any call to "get" method will throw UnsupportedOperationException.
-   *
+   * <p>
    * Access struct values in a ArrowColumnVector doesn't use this accessor. Instead, it uses
    * getStruct() method defined in the parent class. Any call to "get" method in this class is a
    * bug in the code.
-   *
    */
   private static class StructAccessor extends ArrowVectorAccessor {
 

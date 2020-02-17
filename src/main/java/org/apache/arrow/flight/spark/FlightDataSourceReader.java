@@ -15,19 +15,15 @@
  */
 package org.apache.arrow.flight.spark;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -57,7 +53,7 @@ import com.google.common.collect.Lists;
 
 import scala.collection.JavaConversions;
 
-public class FlightDataSourceReader implements SupportsScanColumnarBatch, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
+public class FlightDataSourceReader implements SupportsScanColumnarBatch, SupportsPushDownFilters, SupportsPushDownRequiredColumns, AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightDataSourceReader.class);
   private static final Joiner WHERE_JOINER = Joiner.on(" and ");
   private static final Joiner PROJ_JOINER = Joiner.on(", ");
@@ -69,12 +65,12 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
   private String sql;
   private Filter[] pushed;
 
-  public FlightDataSourceReader(DataSourceOptions dataSourceOptions, BufferAllocator allocator) {
+  public FlightDataSourceReader(DataSourceOptions dataSourceOptions) {
     defaultLocation = Location.forGrpcInsecure(
       dataSourceOptions.get("host").orElse("localhost"),
       dataSourceOptions.getInt("port", 47470)
     );
-    clientFactory = new FlightClientFactory(allocator,
+    clientFactory = new FlightClientFactory(
       defaultLocation,
       dataSourceOptions.get("username").orElse("anonymous"),
       dataSourceOptions.get("password").orElse(null),
@@ -171,6 +167,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
 
   @Override
   public List<InputPartition<ColumnarBatch>> planBatchInputPartitions() {
+    System.out.println("planBatchInputPartitions");
     return planBatchInputPartitionsParallel();
   }
 
@@ -316,5 +313,10 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
         throw new RuntimeException(e);
       }
     }
+  }
+
+  @Override
+  public void close() throws Exception {
+    clientFactory.close();
   }
 }

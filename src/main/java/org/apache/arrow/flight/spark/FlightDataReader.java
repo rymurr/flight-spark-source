@@ -26,6 +26,7 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
@@ -33,24 +34,33 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
-  private final Logger logger = LoggerFactory.getLogger(FlightDataReader.class);
+  private static final Logger logger = LoggerFactory.getLogger(FlightDataReader.class);
   private final FlightClient client;
   private final FlightStream stream;
   private final BufferAllocator allocator;
+  private final FlightClientFactory clientFactory;
+  private final byte[] ticket;
+  private boolean parallel;
 
   public FlightDataReader(
     byte[] ticket,
     String defaultHost,
-    int defaultPort, String username, String password, boolean parallel) {
+    int defaultPort,
+    String username,
+    String password,
+    boolean parallel) {
+    this.parallel = parallel;
     this.allocator = new RootAllocator();
     logger.warn("setting up a data reader at host {} and port {} with ticket {}", defaultHost, defaultPort, new String(ticket));
-    client = FlightClient.builder(this.allocator, Location.forGrpcInsecure(defaultHost, defaultPort)).build(); //todo multiple locations & ssl
-    client.authenticateBasic(username, password);
-    if (parallel) {
-      Iterator<Result> res = client.doAction(new Action("PARALLEL"));
-      res.forEachRemaining(Object::toString);
-    }
+    clientFactory = new FlightClientFactory(Location.forGrpcInsecure(defaultHost, defaultPort), username, password, parallel);
+    client = clientFactory.apply();
     stream = client.getStream(new Ticket(ticket));
+    this.ticket = ticket;
+    if (parallel) {
+      logger.debug("doing create action for ticket {}", new String(ticket));
+      client.doAction(new Action("create", ticket)).forEachRemaining(Object::toString);
+      logger.debug("completed create action for ticket {}", new String(ticket));
+    }
   }
 
   @Override
@@ -73,9 +83,10 @@ public class FlightDataReader implements InputPartitionReader<ColumnarBatch> {
   @Override
   public void close() throws IOException {
         try {
-            client.close();
-            stream.close();
-//            allocator.close();
+          if (parallel) {
+            client.doAction(new Action("delete", ticket)).forEachRemaining(Object::toString);
+          }
+          AutoCloseables.close(client, stream, clientFactory, allocator);
         } catch (Exception e) {
             throw new IOException(e);
         }
