@@ -145,7 +145,7 @@ public class TestConnector {
 
   @Test
   public void testParallel() {
-    String easySql = "select * from test.table";
+    String easySql = "select * from \"@dremio\".tpch_spark limit 100000";
     SizeConsumer c = new SizeConsumer();
     csc.readSql(easySql, true).toLocalIterator().forEachRemaining(c);
     long width = c.width;

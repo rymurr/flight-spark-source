@@ -22,16 +22,16 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
 
-public class FlightClientFactory {
-  private BufferAllocator allocator;
-  private Location defaultLocation;
+public class FlightClientFactory implements AutoCloseable {
+  private final BufferAllocator allocator = new RootAllocator();
+  private final Location defaultLocation;
   private final String username;
   private final String password;
-  private boolean parallel;
+  private final boolean parallel;
 
-  public FlightClientFactory(BufferAllocator allocator, Location defaultLocation, String username, String password, boolean parallel) {
-    this.allocator = allocator;
+  public FlightClientFactory(Location defaultLocation, String username, String password, boolean parallel) {
     this.defaultLocation = defaultLocation;
     this.username = username;
     this.password = password.equals("$NULL$") ? null : password;
@@ -59,5 +59,10 @@ public class FlightClientFactory {
 
   public boolean isParallel() {
     return parallel;
+  }
+
+  @Override
+  public void close() throws Exception {
+    allocator.close();
   }
 }
