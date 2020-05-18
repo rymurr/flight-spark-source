@@ -51,8 +51,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
-import org.apache.spark.annotation.InterfaceStability;
-import org.apache.spark.sql.execution.arrow.ModernArrowUtils;
+import org.apache.spark.sql.execution.arrow.FlightArrowUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarArray;
@@ -63,13 +62,12 @@ import io.netty.buffer.ArrowBuf;
 
 /**
  * A column vector backed by Apache Arrow. Currently calendar interval type and map type are not
- * supported.
+ * supported. This is a copy of ArrowColumnVector with added support for DateMilli and TimestampMilli
  */
-@InterfaceStability.Evolving
-public final class ModernArrowColumnVector extends ColumnVector {
+public final class FlightArrowColumnVector extends ColumnVector {
 
   private final ArrowVectorAccessor accessor;
-  private ModernArrowColumnVector[] childColumns;
+  private FlightArrowColumnVector[] childColumns;
 
   @Override
   public boolean hasNull() {
@@ -171,12 +169,12 @@ public final class ModernArrowColumnVector extends ColumnVector {
   }
 
   @Override
-  public ModernArrowColumnVector getChild(int ordinal) {
+  public FlightArrowColumnVector getChild(int ordinal) {
     return childColumns[ordinal];
   }
 
-  public ModernArrowColumnVector(ValueVector vector) {
-    super(ModernArrowUtils.fromArrowField(vector.getField()));
+  public FlightArrowColumnVector(ValueVector vector) {
+    super(FlightArrowUtils.fromArrowField(vector.getField()));
 
     if (vector instanceof BitVector) {
       accessor = new BooleanAccessor((BitVector) vector);
@@ -213,9 +211,9 @@ public final class ModernArrowColumnVector extends ColumnVector {
       StructVector structVector = (StructVector) vector;
       accessor = new StructAccessor(structVector);
 
-      childColumns = new ModernArrowColumnVector[structVector.size()];
+      childColumns = new FlightArrowColumnVector[structVector.size()];
       for (int i = 0; i < childColumns.length; ++i) {
-        childColumns[i] = new ModernArrowColumnVector(structVector.getVectorById(i));
+        childColumns[i] = new FlightArrowColumnVector(structVector.getVectorById(i));
       }
     } else {
       System.out.println(vector);
@@ -515,12 +513,12 @@ public final class ModernArrowColumnVector extends ColumnVector {
   private static class ArrayAccessor extends ArrowVectorAccessor {
 
     private final ListVector accessor;
-    private final ModernArrowColumnVector arrayData;
+    private final FlightArrowColumnVector arrayData;
 
     ArrayAccessor(ListVector vector) {
       super(vector);
       this.accessor = vector;
-      this.arrayData = new ModernArrowColumnVector(vector.getDataVector());
+      this.arrayData = new FlightArrowColumnVector(vector.getDataVector());
     }
 
     @Override

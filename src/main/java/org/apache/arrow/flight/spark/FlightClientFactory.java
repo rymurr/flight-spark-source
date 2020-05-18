@@ -34,7 +34,7 @@ public class FlightClientFactory implements AutoCloseable {
   public FlightClientFactory(Location defaultLocation, String username, String password, boolean parallel) {
     this.defaultLocation = defaultLocation;
     this.username = username;
-    this.password = password.equals("$NULL$") ? null : password;
+    this.password = (password == null || password.equals("$NULL$")) ? null : password;
     this.parallel = parallel;
   }
 
@@ -49,20 +49,8 @@ public class FlightClientFactory implements AutoCloseable {
 
   }
 
-  public String getUsername() {
-    return username;
-  }
-
-  public String getPassword() {
-    return password;
-  }
-
-  public boolean isParallel() {
-    return parallel;
-  }
-
   @Override
-  public void close() throws Exception {
+  public void close() {
     allocator.close();
   }
 }
