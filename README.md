@@ -17,10 +17,6 @@ It currently supports:
 It currently lacks:
 
 * support for all Spark/Arrow data types and filters
-* Strongly tied to [Dremio's flight endpoint](https://github.com/dremio-hub/dremio-flight-connector) and should be abstracted 
-to generic Flight sources
-* Needs to be updated to support new features in Arrow 0.15.0
 * write interface to use `DoPut` to write Spark dataframes back to an Arrow Flight endpoint
 * leverage the transactional capabilities of the Spark Source V2 interface
-* proper benchmark test
-* CI build & tests
+* publish benchmark test

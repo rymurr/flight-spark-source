@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.spark.sql.execution.arrow
 
 import org.apache.arrow.memory.RootAllocator
@@ -22,7 +23,10 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import scala.collection.JavaConverters._
 
-object ModernArrowUtils {
+/**
+ * FlightArrowUtils is a copy of ArrowUtils with extra support for DateMilli and TimestampMilli
+ */
+object FlightArrowUtils {
 
   val rootAllocator = new RootAllocator(Long.MaxValue)
 

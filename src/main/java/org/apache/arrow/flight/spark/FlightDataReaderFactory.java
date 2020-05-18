@@ -15,39 +15,27 @@
  */
 package org.apache.arrow.flight.spark;
 
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 
 public class FlightDataReaderFactory implements InputPartition<ColumnarBatch> {
 
-  private byte[] ticket;
-  private final String defaultHost;
-  private final int defaultPort;
-  private final String username;
-  private final String password;
-  private boolean parallel;
+  private final Broadcast<FlightDataSourceReader.FactoryOptions> options;
 
-  public FlightDataReaderFactory(
-    byte[] ticket,
-    String defaultHost,
-    int defaultPort, String username, String password, boolean parallel) {
-    this.ticket = ticket;
-    this.defaultHost = defaultHost;
-    this.defaultPort = defaultPort;
-    this.username = username;
-    this.password = password;
-    this.parallel = parallel;
+  public FlightDataReaderFactory(Broadcast<FlightDataSourceReader.FactoryOptions> options) {
+    this.options = options;
   }
 
   @Override
-  public String[] preferredLocations() {
-    return new String[]{defaultHost};
+ public String[] preferredLocations() {
+    return new String[]{options.value().getHost()};
   }
 
   @Override
   public InputPartitionReader<ColumnarBatch> createPartitionReader() {
-    return new FlightDataReader(ticket, defaultHost, defaultPort, username, password, parallel);
+    return new FlightDataReader(options);
   }
 
 }

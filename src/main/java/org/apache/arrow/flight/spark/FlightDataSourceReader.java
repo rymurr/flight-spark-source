@@ -15,8 +15,11 @@
  */
 package org.apache.arrow.flight.spark;
 
+import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.FlightClient;
@@ -27,6 +30,9 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.EqualTo;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.GreaterThan;
@@ -34,7 +40,6 @@ import org.apache.spark.sql.sources.GreaterThanOrEqual;
 import org.apache.spark.sql.sources.IsNotNull;
 import org.apache.spark.sql.sources.LessThan;
 import org.apache.spark.sql.sources.LessThanOrEqual;
-import org.apache.spark.sql.sources.v2.DataSourceOptions;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownRequiredColumns;
@@ -57,26 +62,27 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightDataSourceReader.class);
   private static final Joiner WHERE_JOINER = Joiner.on(" and ");
   private static final Joiner PROJ_JOINER = Joiner.on(", ");
+  private final Location defaultLocation;
   private SchemaResult info;
   private FlightDescriptor descriptor;
   private StructType schema;
-  private final Location defaultLocation;
   private final FlightClientFactory clientFactory;
   private String sql;
+  private final Broadcast<FactoryOptions> dataSourceOptions;
   private Filter[] pushed;
+  private SparkSession lazySpark;
+  private JavaSparkContext lazySparkContext;
 
-  public FlightDataSourceReader(DataSourceOptions dataSourceOptions) {
-    defaultLocation = Location.forGrpcInsecure(
-      dataSourceOptions.get("host").orElse("localhost"),
-      dataSourceOptions.getInt("port", 47470)
-    );
+  public FlightDataSourceReader(Broadcast<FactoryOptions> dataSourceOptions) {
     clientFactory = new FlightClientFactory(
-      defaultLocation,
-      dataSourceOptions.get("username").orElse("anonymous"),
-      dataSourceOptions.get("password").orElse(null),
-      dataSourceOptions.getBoolean("parallel", false)
+      dataSourceOptions.value().getLocation(),
+      dataSourceOptions.value().getUsername(),
+      dataSourceOptions.value().getPassword(),
+      dataSourceOptions.value().isParallel()
     );
-    sql = dataSourceOptions.get("path").orElse("");
+    defaultLocation = dataSourceOptions.value().getLocation();
+    sql = dataSourceOptions.value().getSql();
+    this.dataSourceOptions = dataSourceOptions;
     descriptor = getDescriptor(sql);
     try (FlightClient client = clientFactory.apply()) {
       info = client.getSchema(descriptor);
@@ -167,7 +173,6 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
 
   @Override
   public List<InputPartition<ColumnarBatch>> planBatchInputPartitions() {
-    System.out.println("planBatchInputPartitions");
     return planBatchInputPartitionsParallel();
   }
 
@@ -187,15 +192,101 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
       Location location = (endpoint.getLocations().isEmpty()) ?
         Location.forGrpcInsecure(defaultLocation.getUri().getHost(), defaultLocation.getUri().getPort()) :
         endpoint.getLocations().get(0);
-      return new FlightDataReaderFactory(endpoint.getTicket().getBytes(),
-        location.getUri().getHost(),
-        location.getUri().getPort(),
-        clientFactory.getUsername(),
-        clientFactory.getPassword(),
-        clientFactory.isParallel());
+      FactoryOptions options = dataSourceOptions.value().copy(location, endpoint.getTicket().getBytes());
+      LOGGER.warn("X1 {}", dataSourceOptions.value());
+      return new FlightDataReaderFactory(lazySparkContext().broadcast(options));
     }).collect(Collectors.toList());
     LOGGER.info("Created {} batches from arrow endpoints", batches.size());
     return batches;
+  }
+
+  private SparkSession lazySparkSession() {
+    if (lazySpark == null) {
+      this.lazySpark = SparkSession.builder().getOrCreate();
+    }
+    return lazySpark;
+  }
+
+  private JavaSparkContext lazySparkContext() {
+    if (lazySparkContext == null) {
+      this.lazySparkContext = new JavaSparkContext(lazySparkSession().sparkContext());
+    }
+    return lazySparkContext;
+  }
+
+  static class FactoryOptions implements Serializable {
+    private final String host;
+    private final int port;
+    private final String sql;
+    private final String username;
+    private final String password;
+    private final boolean parallel;
+    private final byte[] ticket;
+
+    FactoryOptions(Location location, String sql, String username, String password, boolean parallel, byte[] ticket) {
+      this.host = location.getUri().getHost();
+      this.port = location.getUri().getPort();
+      this.sql = sql;
+      this.username = username;
+      this.password = password;
+      this.parallel = parallel;
+      this.ticket = ticket;
+    }
+
+    public String getUsername() {
+      return username;
+    }
+
+    public String getPassword() {
+      return password;
+    }
+
+    public boolean isParallel() {
+      return parallel;
+    }
+
+    public Location getLocation() {
+      return Location.forGrpcInsecure(host, port);
+    }
+
+    public String getHost() {
+      return host;
+    }
+
+    public int getPort() {
+      return port;
+    }
+
+    public String getSql() {
+      return sql;
+    }
+
+    @Override
+    public String toString() {
+      return new StringJoiner(", ", FactoryOptions.class.getSimpleName() + "[", "]")
+        .add("host='" + host + "'")
+        .add("port=" + port)
+        .add("sql='" + sql + "'")
+        .add("username='" + username + "'")
+        .add("password='" + password + "'")
+        .add("parallel=" + parallel)
+        .add("ticket=" + Arrays.toString(ticket))
+        .toString();
+    }
+
+    public byte[] getTicket() {
+      return ticket;
+    }
+
+    FactoryOptions copy(Location location, byte[] ticket) {
+      return new FactoryOptions(
+        location,
+        sql,
+        username,
+        password,
+        parallel,
+        ticket);
+    }
   }
 
   @Override
@@ -249,6 +340,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
       } else if (filter instanceof LessThanOrEqual) {
         filterStr.add(String.format("\"%s\" <= %s", ((LessThanOrEqual) filter).attribute(), valueToString(((LessThanOrEqual) filter).value())));
       }
+      //todo fill out rest of Filter types
     }
     return WHERE_JOINER.join(filterStr);
   }
@@ -295,8 +387,8 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
     StructType schema = readSchema();
     List<String> fields = Lists.newArrayList();
     List<StructField> fieldsLeft = Lists.newArrayList();
-    Map<String, StructField> fieldNames = JavaConversions.seqAsJavaList(schema.toSeq()).stream().collect(Collectors.toMap(StructField::name, f -> f));
-    for (StructField field : JavaConversions.seqAsJavaList(requiredSchema.toSeq())) {
+    Map<String, StructField> fieldNames = JavaConversions.<StructField>seqAsJavaList(schema.toSeq()).stream().collect(Collectors.toMap(StructField::name, f -> f));
+    for (StructField field : JavaConversions.<StructField>seqAsJavaList(requiredSchema.toSeq())) {
       String name = field.name();
       StructField f = fieldNames.remove(name);
       if (f != null) {
@@ -316,7 +408,7 @@ public class FlightDataSourceReader implements SupportsScanColumnarBatch, Suppor
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     clientFactory.close();
   }
 }

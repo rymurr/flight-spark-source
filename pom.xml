@@ -26,8 +26,8 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
-    <arrow.version>0.15.1</arrow.version>
-    <spark.version>2.4.4</spark.version>
+    <arrow.version>0.17.0</arrow.version>
+    <spark.version>2.4.5</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
   </properties>
   <build>
@@ -52,8 +52,8 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <configLocation>src/main/checkstyle/checkstyle-config.xml</configLocation>
-          <suppressionsLocation>src/main/checkstyle/checkstyle-suppressions.xml</suppressionsLocation>
+          <configLocation>${project.basedir}/src/main/checkstyle/checkstyle-config.xml</configLocation>
+          <suppressionsLocation>${project.basedir}/src/main/checkstyle/checkstyle-suppressions.xml</suppressionsLocation>
         </configuration>
       </plugin>
       <plugin>
@@ -306,6 +306,9 @@ limitations under the License.
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+        <configuration>
+          <sendJavaToScalac>false</sendJavaToScalac>
+        </configuration>
         <executions>
           <execution>
             <id>scala-compile-first</id>
@@ -337,7 +340,8 @@ limitations under the License.
             <configuration>
               <artifactSet>
                 <includes>
-                  <include>org.apache.arrow:arrow-flight:shaded</include>
+                  <include>org.apache.arrow:flight-core</include>
+                  <include>org.apache.arrow:flight-grpc</include>
                   <include>org.apache.arrow:arrow-vector</include>
                   <include>org.apache.arrow:arrow-format</include>
                   <include>org.apache.arrow:arrow-memory</include>
@@ -351,6 +355,7 @@ limitations under the License.
                   <include>com.google.api.grpc:proto-google-common-protos</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>com.google.guava:guava</include>
+                  <include>io.perfmark:perfmark-api</include>
                 </includes>
                 <excludes>
                   <exclude>io.netty:netty-transport-native-unix-common</exclude>
@@ -389,6 +394,9 @@ limitations under the License.
                 </relocation>
 
               </relocations>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded</shadedClassifierName>
             </configuration>
@@ -398,11 +406,6 @@ limitations under the License.
     </plugins>
   </build>
   <dependencies>
-    <!--        <dependency>-->
-    <!--            <groupId>org.codehaus.janino</groupId>-->
-    <!--            <artifactId>janino</artifactId>-->
-    <!--            <version>3.0.11</version>-->
-    <!--        </dependency>-->
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_2.11</artifactId>
@@ -463,9 +466,13 @@ limitations under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-flight</artifactId>
+      <artifactId>flight-core</artifactId>
       <version>${arrow.version}</version>
-      <classifier>shaded</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>flight-grpc</artifactId>
+      <version>${arrow.version}</version>
     </dependency>
     <dependency>
       <groupId>org.scala-lang</groupId>
@@ -474,12 +481,6 @@ limitations under the License.
     </dependency>
 
     <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_2.11</artifactId>
-      <version>2.2.5</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jul-to-slf4j</artifactId>
       <version>${dep.slf4j.version}</version>
@@ -487,7 +488,7 @@ limitations under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-flight</artifactId>
+      <artifactId>flight-core</artifactId>
       <version>${arrow.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
