@@ -41,6 +41,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
@@ -200,8 +201,10 @@ public final class FlightArrowColumnVector extends ColumnVector {
       accessor = new DateAccessor((DateDayVector) vector);
     } else if (vector instanceof DateMilliVector) {
       accessor = new DateMilliAccessor((DateMilliVector) vector);
+    } else if (vector instanceof TimeStampMicroVector) {
+      accessor = new TimestampMicroAccessor((TimeStampMicroVector) vector);
     } else if (vector instanceof TimeStampMicroTZVector) {
-      accessor = new TimestampAccessor((TimeStampMicroTZVector) vector);
+      accessor = new TimestampMicroTZAccessor((TimeStampMicroTZVector) vector);
     } else if (vector instanceof TimeStampMilliVector) {
       accessor = new TimestampMilliAccessor((TimeStampMilliVector) vector);
     } else if (vector instanceof ListVector) {
@@ -480,11 +483,26 @@ public final class FlightArrowColumnVector extends ColumnVector {
     }
   }
 
-  private static class TimestampAccessor extends ArrowVectorAccessor {
+  private static class TimestampMicroAccessor extends ArrowVectorAccessor {
 
     private final TimeStampVector accessor;
 
-    TimestampAccessor(TimeStampMicroTZVector vector) {
+    TimestampMicroAccessor(TimeStampMicroVector vector) {
+      super(vector);
+      this.accessor = vector;
+    }
+
+    @Override
+    final long getLong(int rowId) {
+      return accessor.get(rowId);
+    }
+  }
+
+  private static class TimestampMicroTZAccessor extends ArrowVectorAccessor {
+
+    private final TimeStampVector accessor;
+
+    TimestampMicroTZAccessor(TimeStampMicroTZVector vector) {
       super(vector);
       this.accessor = vector;
     }
