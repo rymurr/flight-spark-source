@@ -68,7 +68,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     public Scan build() {
         try (FlightClient client = clientFactory.apply()) {
             FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
-            return new FlightScan(readSchema(), info);
+            return new FlightScan(readSchema(), this.clientFactory, info);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

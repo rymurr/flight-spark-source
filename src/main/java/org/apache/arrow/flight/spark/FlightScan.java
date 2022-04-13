@@ -9,15 +9,22 @@ import org.apache.spark.sql.types.StructType;
 
 public class FlightScan implements Scan, Batch {
     private final StructType schema;
+    private final FlightClientFactory clientFactory;
     private final FlightInfo info;
-    public FlightScan(StructType schema, FlightInfo info) {
+    public FlightScan(StructType schema, FlightClientFactory clientFactory, FlightInfo info) {
         this.schema = schema;
+        this.clientFactory = clientFactory;
         this.info = info;
     }
 
     @Override
     public StructType readSchema() {
         return schema;
+    }
+
+    @Override
+    public Batch toBatch() {
+        return this;
     }
 
     @Override
@@ -30,8 +37,7 @@ public class FlightScan implements Scan, Batch {
 
     @Override
     public PartitionReaderFactory createReaderFactory() {
-        // TODO Auto-generated method stub
-        return null;
+        return new FlightPartitionReaderFactory(clientFactory);
     }
     
 }
