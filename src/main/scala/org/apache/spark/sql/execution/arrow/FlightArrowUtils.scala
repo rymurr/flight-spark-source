@@ -126,11 +126,8 @@ object FlightArrowUtils {
 
   /** Return Map with conf settings to be used in ArrowPythonRunner */
   def getPythonRunnerConfMap(conf: SQLConf): Map[String, String] = {
-    val timeZoneConf = if (conf.pandasRespectSessionTimeZone) {
-      Seq(SQLConf.SESSION_LOCAL_TIMEZONE.key -> conf.sessionLocalTimeZone)
-    } else {
-      Nil
-    }
+    val timeZoneConf = Seq(SQLConf.SESSION_LOCAL_TIMEZONE.key ->
+      conf.sessionLocalTimeZone)
     val pandasColsByName = Seq(SQLConf.PANDAS_GROUPED_MAP_ASSIGN_COLUMNS_BY_NAME.key ->
       conf.pandasGroupedMapAssignColumnsByName.toString)
     Map(timeZoneConf ++ pandasColsByName: _*)
