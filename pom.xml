@@ -26,9 +26,12 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
-    <arrow.version>0.17.0</arrow.version>
-    <spark.version>2.4.5</spark.version>
+    <!-- Dependency Versions -->
+    <scala.version>2.12.14</scala.version>
+    <arrow.version>7.0.0</arrow.version>
+    <spark.version>3.2.1</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <jackson-core.version>2.4.4</jackson-core.version>
   </properties>
   <build>
     <extensions>
@@ -306,6 +309,7 @@ limitations under the License.
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+        <version>4.6.1</version>
         <configuration>
           <sendJavaToScalac>false</sendJavaToScalac>
         </configuration>
@@ -408,7 +412,7 @@ limitations under the License.
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.11</artifactId>
+      <artifactId>spark-core_2.12</artifactId>
       <version>${spark.version}</version>
       <exclusions>
         <exclusion>
@@ -435,7 +439,7 @@ limitations under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.11</artifactId>
+      <artifactId>spark-sql_2.12</artifactId>
       <version>${spark.version}</version>
       <exclusions>
         <exclusion>
@@ -464,6 +468,17 @@ limitations under the License.
         </exclusion>
       </exclusions>
     </dependency>
+    <!-- We don't need jackson but if we don't set this Spark doesn't work and unit tests fail -->
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>${jackson-core.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson-core.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>flight-core</artifactId>
@@ -477,7 +492,7 @@ limitations under the License.
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>2.11.6</version>
+      <version>${scala.version}</version>
     </dependency>
 
     <dependency>

@@ -15,38 +15,30 @@
  */
 package org.apache.arrow.flight.spark;
 
-import java.util.Iterator;
+import java.io.InputStream;
+import java.util.Optional;
 
-import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.Result;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
 public class FlightClientFactory implements AutoCloseable {
   private final BufferAllocator allocator = new RootAllocator();
   private final Location defaultLocation;
-  private final String username;
-  private final String password;
-  private final boolean parallel;
+  private final Optional<InputStream> trustedCertificates;
 
-  public FlightClientFactory(Location defaultLocation, String username, String password, boolean parallel) {
+  public FlightClientFactory(Location defaultLocation, Optional<InputStream> trustedCertificates) {
     this.defaultLocation = defaultLocation;
-    this.username = username;
-    this.password = (password == null || password.equals("$NULL$")) ? null : password;
-    this.parallel = parallel;
+    this.trustedCertificates = trustedCertificates;
   }
 
   public FlightClient apply() {
-    FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
-    client.authenticateBasic(username, password);
-    if (parallel) {
-      Iterator<Result> res = client.doAction(new Action("PARALLEL"));
-      res.forEachRemaining(Object::toString);
+    FlightClient.Builder builder = FlightClient.builder(allocator, defaultLocation);
+    if (trustedCertificates.isPresent()) {
+      builder.trustedCertificates(trustedCertificates.get());
     }
-    return client;
-
+    return builder.build();
   }
 
   @Override
