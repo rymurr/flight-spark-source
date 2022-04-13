@@ -13,7 +13,7 @@ import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
-public class FlightDataSource implements TableProvider, DataSourceRegister {
+public class DefaultSource implements TableProvider, DataSourceRegister {
 
   private FlightTable makeTable(CaseInsensitiveStringMap options) {
     String protocol = options.getOrDefault("protocol", "grpc");

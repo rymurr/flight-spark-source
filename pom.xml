@@ -31,7 +31,7 @@
     <arrow.version>7.0.0</arrow.version>
     <spark.version>3.2.1</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <jackson-core.version>2.4.4</jackson-core.version>
+    <jackson-core.version>2.12.3</jackson-core.version>
   </properties>
   <build>
     <extensions>
