@@ -12,18 +12,29 @@ import org.slf4j.LoggerFactory;
 
 public class FlightPartitionReaderFactory implements PartitionReaderFactory {
     private static final Logger logger = LoggerFactory.getLogger(FlightPartitionReaderFactory.class);
-    private final FlightClientFactory clientFactory;
+    private final FlightClientOptions clientOptions;
 
-    public FlightPartitionReaderFactory(FlightClientFactory clientFactory) {
-        this.clientFactory = clientFactory;
+    public FlightPartitionReaderFactory(FlightClientOptions clientOptions) {
+        this.clientOptions = clientOptions;
     }
 
     private FlightStream createStream(InputPartition iPartition) {
         // This feels wrong but this is what upstream spark sources do to.
         FlightPartition partition = (FlightPartition) iPartition;
         logger.info("Reading Flight data from locations: {}", (Object) partition.preferredLocations());
-        FlightClient client = clientFactory.apply();
-        return client.getStream(partition.getEndpoint().getTicket());
+        // TODO - Should we handle multiple locations?
+        try (
+            FlightClientFactory clientFactory = new FlightClientFactory(
+                partition.getEndpoint().getLocations().get(0),
+                clientOptions
+            );
+        ) {
+            try (FlightClient client = clientFactory.apply()) {
+                return client.getStream(partition.getEndpoint().getTicket());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @Override

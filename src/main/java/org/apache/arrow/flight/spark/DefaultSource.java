@@ -1,9 +1,6 @@
 package org.apache.arrow.flight.spark;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.Map;
-import java.util.Optional;
 
 import org.apache.arrow.flight.Location;
 import org.apache.spark.sql.connector.catalog.TableProvider;
@@ -32,13 +29,14 @@ public class DefaultSource implements TableProvider, DataSourceRegister {
 
     String sql = options.getOrDefault("path", "");
     String trustedCertificates = options.getOrDefault("trustedCertificates", "");
-    Optional<InputStream> trustedCertificatesIs = trustedCertificates.isBlank() ? Optional.empty() : Optional.of(new ByteArrayInputStream(trustedCertificates.getBytes()));
+
+    FlightClientOptions clientOptions = trustedCertificates.isEmpty() ? null : new FlightClientOptions(trustedCertificates);
 
     return new FlightTable(
       String.format("{} Location {} Command {}", shortName(), location.getUri().toString(), sql),
       location,
       sql,
-      trustedCertificatesIs
+      clientOptions
     );
   }
 

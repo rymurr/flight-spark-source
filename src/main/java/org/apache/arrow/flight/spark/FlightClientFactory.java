@@ -15,8 +15,8 @@
  */
 package org.apache.arrow.flight.spark;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.util.Optional;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
@@ -26,17 +26,19 @@ import org.apache.arrow.memory.RootAllocator;
 public class FlightClientFactory implements AutoCloseable {
   private final BufferAllocator allocator = new RootAllocator();
   private final Location defaultLocation;
-  private final Optional<InputStream> trustedCertificates;
+  private InputStream trustedCertificates;
 
-  public FlightClientFactory(Location defaultLocation, Optional<InputStream> trustedCertificates) {
+  public FlightClientFactory(Location defaultLocation, FlightClientOptions clientOptions) {
     this.defaultLocation = defaultLocation;
-    this.trustedCertificates = trustedCertificates;
+    if (clientOptions != null) {
+      this.trustedCertificates = new ByteArrayInputStream(clientOptions.getTrustedCertificates().getBytes());
+    }
   }
 
   public FlightClient apply() {
     FlightClient.Builder builder = FlightClient.builder(allocator, defaultLocation);
-    if (trustedCertificates.isPresent()) {
-      builder.trustedCertificates(trustedCertificates.get());
+    if (trustedCertificates != null) {
+      builder.trustedCertificates(trustedCertificates);
     }
     return builder.build();
   }
