@@ -1,6 +1,7 @@
 package org.apache.arrow.flight.spark;
 
 import org.apache.spark.sql.connector.read.Scan;
+
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -9,12 +10,13 @@ import org.apache.spark.sql.types.StructType;
 
 public class FlightScan implements Scan, Batch {
     private final StructType schema;
-    private final FlightClientFactory clientFactory;
     private final FlightInfo info;
-    public FlightScan(StructType schema, FlightClientFactory clientFactory, FlightInfo info) {
+    private final FlightClientOptions clientOptions;
+
+    public FlightScan(StructType schema, FlightInfo info, FlightClientOptions clientOptions) {
         this.schema = schema;
-        this.clientFactory = clientFactory;
         this.info = info;
+        this.clientOptions = clientOptions;
     }
 
     @Override
@@ -37,7 +39,7 @@ public class FlightScan implements Scan, Batch {
 
     @Override
     public PartitionReaderFactory createReaderFactory() {
-        return new FlightPartitionReaderFactory(clientFactory);
+        return new FlightPartitionReaderFactory(clientOptions);
     }
     
 }

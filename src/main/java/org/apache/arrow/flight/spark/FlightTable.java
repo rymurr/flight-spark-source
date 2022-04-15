@@ -1,7 +1,5 @@
 package org.apache.arrow.flight.spark;
 
-import java.io.InputStream;
-import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.flight.Location;
@@ -15,14 +13,16 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 public class FlightTable implements Table, SupportsRead {
     private static final Set<TableCapability> CAPABILITIES = Set.of(TableCapability.BATCH_READ);
     private final String name;
-    private final FlightClientFactory clientFactory;
+    private final Location location;
     private final String sql;
+    private final FlightClientOptions clientOptions;
     private StructType schema;
 
-    public FlightTable(String name, Location location, String sql, Optional<InputStream> trustedCertificates) {
+    public FlightTable(String name, Location location, String sql, FlightClientOptions clientOptions) {
         this.name = name;
-        clientFactory = new FlightClientFactory(location, trustedCertificates);
+        this.location = location;
         this.sql = sql;
+        this.clientOptions = clientOptions;
     }
 
     @Override
@@ -33,7 +33,7 @@ public class FlightTable implements Table, SupportsRead {
     @Override
     public StructType schema() {
         if (schema == null) {
-            schema = (new FlightScanBuilder(clientFactory, sql)).readSchema();
+            schema = (new FlightScanBuilder(location, clientOptions, sql)).readSchema();
         }
         return schema;
     }
@@ -48,6 +48,6 @@ public class FlightTable implements Table, SupportsRead {
 
     @Override
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap options) {
-        return new FlightScanBuilder(clientFactory, sql);
+        return new FlightScanBuilder(location, clientOptions, sql);
     }
 }

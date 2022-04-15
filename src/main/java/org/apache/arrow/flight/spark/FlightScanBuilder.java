@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -48,29 +49,35 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     private static final Joiner PROJ_JOINER = Joiner.on(", ");
     private SchemaResult info;
     private StructType schema;
-    private final FlightClientFactory clientFactory;
+    private final Location location;
+    private final FlightClientOptions clientOptions;
     private FlightDescriptor descriptor;
     private String sql;
     private Filter[] pushed;
 
-    public FlightScanBuilder(FlightClientFactory clientFactory, String sql) {
-        this.clientFactory = clientFactory;
+    public FlightScanBuilder(Location location, FlightClientOptions clientOptions, String sql) {
+        this.location = location;
+        this.clientOptions = clientOptions;
         this.sql = sql;
         descriptor = getDescriptor(sql);
-        try (FlightClient client = clientFactory.apply()) {
-            info = client.getSchema(descriptor);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
+            try (FlightClient client = clientFactory.apply()) {
+                info = client.getSchema(descriptor);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
     @Override
     public Scan build() {
-        try (FlightClient client = clientFactory.apply()) {
-            FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
-            return new FlightScan(readSchema(), this.clientFactory, info);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
+            try (FlightClient client = clientFactory.apply()) {
+                FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
+                return new FlightScan(readSchema(), info, clientOptions);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -147,13 +154,15 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         }
         this.pushed = pushed.toArray(new Filter[0]);
         if (!pushed.isEmpty()) {
-        String whereClause = generateWhereClause(pushed);
-        mergeWhereDescriptors(whereClause);
-        try (FlightClient client = clientFactory.apply()) {
-            info = client.getSchema(descriptor);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+            String whereClause = generateWhereClause(pushed);
+            mergeWhereDescriptors(whereClause);
+            try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
+                try (FlightClient client = clientFactory.apply()) {
+                    info = client.getSchema(descriptor);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
         return notPushed.toArray(new Filter[0]);
     }
@@ -265,10 +274,12 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         if (!fieldNames.isEmpty()) {
             this.schema = new StructType(fieldsLeft.toArray(new StructField[0]));
             mergeProjDescriptors(PROJ_JOINER.join(fields));
-            try (FlightClient client = clientFactory.apply()) {
-                info = client.getSchema(descriptor);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
+                try (FlightClient client = clientFactory.apply()) {
+                    info = client.getSchema(descriptor);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
     }
