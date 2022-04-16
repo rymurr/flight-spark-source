@@ -44,32 +44,60 @@ import scala.collection.JavaConversions;
 import com.google.common.collect.Lists;
 import com.google.common.base.Joiner;
 
-public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredColumns, SupportsPushDownFilters, AutoCloseable {
+public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredColumns, SupportsPushDownFilters {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlightScanBuilder.class);
     private static final Joiner WHERE_JOINER = Joiner.on(" and ");
     private static final Joiner PROJ_JOINER = Joiner.on(", ");
-    private SchemaResult info;
+    private SchemaResult flightSchema;
     private StructType schema;
+    private final Location location;
     private final FlightClientOptions clientOptions;
-    private final FlightClientFactory clientFactory;
-    private final FlightClient client;
     private FlightDescriptor descriptor;
     private String sql;
     private Filter[] pushed;
 
     public FlightScanBuilder(Location location, FlightClientOptions clientOptions, String sql) {
+        this.location = location;
         this.clientOptions = clientOptions;
         this.sql = sql;
         descriptor = getDescriptor(sql);
-        this.clientFactory = new FlightClientFactory(location, clientOptions);
-        this.client = clientFactory.apply();
-        info = client.getSchema(descriptor);
+    }
+
+    private class Client implements AutoCloseable {
+        private final FlightClientFactory clientFactory;
+        private final FlightClient client;
+
+        public Client(Location location, FlightClientOptions clientOptions) {
+            this.clientFactory = new FlightClientFactory(location, clientOptions);
+            this.client = clientFactory.apply();
+        }
+
+        public FlightClient get() {
+            return client;
+        }
+
+        @Override
+        public void close() throws Exception {
+            AutoCloseables.close(client, clientFactory);
+        }
+    }
+
+    private void getFlightSchema(FlightDescriptor descriptor) {
+        try (Client client = new Client(location, clientOptions)) {
+            flightSchema = client.get().getSchema(descriptor);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public Scan build() {
-        FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
-        return new FlightScan(readSchema(), info, clientOptions);
+        try (Client client = new Client(location, clientOptions)) {
+            FlightInfo info = client.get().getInfo(FlightDescriptor.command(sql.getBytes()));
+            return new FlightScan(readSchema(), info, clientOptions);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private boolean canBePushed(Filter filter) {
@@ -147,7 +175,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         if (!pushed.isEmpty()) {
             String whereClause = generateWhereClause(pushed);
             mergeWhereDescriptors(whereClause);
-            info = client.getSchema(descriptor);
+            getFlightSchema(descriptor);
         }
         return notPushed.toArray(new Filter[0]);
     }
@@ -217,7 +245,10 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     }
 
     private StructType readSchemaImpl() {
-        StructField[] fields = info.getSchema().getFields().stream()
+        if (flightSchema == null) {
+            getFlightSchema(descriptor);
+        }
+        StructField[] fields = flightSchema.getSchema().getFields().stream()
                 .map(field -> new StructField(field.getName(),
                         sparkFromArrow(field.getFieldType()),
                         field.isNullable(),
@@ -259,13 +290,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         if (!fieldNames.isEmpty()) {
             this.schema = new StructType(fieldsLeft.toArray(new StructField[0]));
             mergeProjDescriptors(PROJ_JOINER.join(fields));
-            info = client.getSchema(descriptor);
+            getFlightSchema(descriptor);
         }
-    }
-
-    @Override
-    public void close() throws Exception {
-        // This order is important
-        AutoCloseables.close(client, clientFactory);
     }
 }

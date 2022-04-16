@@ -33,11 +33,8 @@ public class FlightTable implements Table, SupportsRead {
     @Override
     public StructType schema() {
         if (schema == null) {
-            try (FlightScanBuilder scanBuilder = new FlightScanBuilder(location, clientOptions, sql)) {
-                schema = scanBuilder.readSchema();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            FlightScanBuilder scanBuilder = new FlightScanBuilder(location, clientOptions, sql);
+            schema = scanBuilder.readSchema();
         }
         return schema;
     }
