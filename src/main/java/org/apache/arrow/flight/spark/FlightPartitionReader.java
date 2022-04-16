@@ -4,28 +4,26 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
 
+import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 
 public class FlightPartitionReader implements PartitionReader<InternalRow> {
+    private final FlightClientFactory clientFactory;;
+    private final FlightClient client;
     private final FlightStream stream;
     private Optional<Iterator<InternalRow>> batch;
     private InternalRow row;
 
-    public FlightPartitionReader(FlightStream stream) {
-        this.stream = stream;
-    }
-
-    @Override
-    public void close() throws IOException {
-        try {
-            stream.close();
-        } catch (Exception e) {
-            throw new IOException(e);
-        } 
+    public FlightPartitionReader(FlightClientOptions clientOptions, FlightPartition partition) {
+        // TODO - Should we handle multiple locations?
+        clientFactory = new FlightClientFactory(partition.getEndpoint().get().getLocations().get(0), clientOptions);
+        client = clientFactory.apply();
+        stream = client.getStream(partition.getEndpoint().get().getTicket());
     }
 
     private Iterator<InternalRow> getNextBatch() {
@@ -98,5 +96,13 @@ public class FlightPartitionReader implements PartitionReader<InternalRow> {
     public InternalRow get() {
         return row;
     }
-    
+
+    @Override
+    public void close() throws IOException {
+        try {
+            AutoCloseables.close(stream, client, clientFactory);
+        } catch (Exception e) {
+            throw new IOException(e);
+        } 
+    }   
 }

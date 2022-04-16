@@ -26,6 +26,7 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.SchemaResult;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -43,42 +44,32 @@ import scala.collection.JavaConversions;
 import com.google.common.collect.Lists;
 import com.google.common.base.Joiner;
 
-public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredColumns, SupportsPushDownFilters {
+public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredColumns, SupportsPushDownFilters, AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlightScanBuilder.class);
     private static final Joiner WHERE_JOINER = Joiner.on(" and ");
     private static final Joiner PROJ_JOINER = Joiner.on(", ");
     private SchemaResult info;
     private StructType schema;
-    private final Location location;
     private final FlightClientOptions clientOptions;
+    private final FlightClientFactory clientFactory;
+    private final FlightClient client;
     private FlightDescriptor descriptor;
     private String sql;
     private Filter[] pushed;
 
     public FlightScanBuilder(Location location, FlightClientOptions clientOptions, String sql) {
-        this.location = location;
         this.clientOptions = clientOptions;
         this.sql = sql;
         descriptor = getDescriptor(sql);
-        try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
-            try (FlightClient client = clientFactory.apply()) {
-                info = client.getSchema(descriptor);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        this.clientFactory = new FlightClientFactory(location, clientOptions);
+        this.client = clientFactory.apply();
+        info = client.getSchema(descriptor);
     }
 
     @Override
     public Scan build() {
-        try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
-            try (FlightClient client = clientFactory.apply()) {
-                FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
-                return new FlightScan(readSchema(), info, clientOptions);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        FlightInfo info = client.getInfo(FlightDescriptor.command(sql.getBytes()));
+        return new FlightScan(readSchema(), info, clientOptions);
     }
 
     private boolean canBePushed(Filter filter) {
@@ -156,13 +147,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         if (!pushed.isEmpty()) {
             String whereClause = generateWhereClause(pushed);
             mergeWhereDescriptors(whereClause);
-            try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
-                try (FlightClient client = clientFactory.apply()) {
-                    info = client.getSchema(descriptor);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            info = client.getSchema(descriptor);
         }
         return notPushed.toArray(new Filter[0]);
     }
@@ -274,13 +259,13 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         if (!fieldNames.isEmpty()) {
             this.schema = new StructType(fieldsLeft.toArray(new StructField[0]));
             mergeProjDescriptors(PROJ_JOINER.join(fields));
-            try (FlightClientFactory clientFactory = new FlightClientFactory(location, clientOptions)) {
-                try (FlightClient client = clientFactory.apply()) {
-                    info = client.getSchema(descriptor);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            info = client.getSchema(descriptor);
         }
+    }
+
+    @Override
+    public void close() throws Exception {
+        // This order is important
+        AutoCloseables.close(client, clientFactory);
     }
 }

@@ -32,7 +32,8 @@ public class FlightScan implements Scan, Batch {
     @Override
     public InputPartition[] planInputPartitions() {
         InputPartition[] batches = info.getEndpoints().stream().map(endpoint -> {
-            return new FlightPartition(endpoint);
+            FlightEndpointWrapper endpointWrapper = new FlightEndpointWrapper(endpoint);
+            return new FlightPartition(endpointWrapper);
         }).toArray(InputPartition[]::new);
         return batches;
     }
