@@ -32,6 +32,8 @@
     <spark.version>3.2.1</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <jackson-core.version>2.12.3</jackson-core.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
   <build>
     <extensions>
@@ -348,7 +350,8 @@ limitations under the License.
                   <include>org.apache.arrow:flight-grpc</include>
                   <include>org.apache.arrow:arrow-vector</include>
                   <include>org.apache.arrow:arrow-format</include>
-                  <include>org.apache.arrow:arrow-memory</include>
+                  <include>org.apache.arrow:arrow-memory-core</include>
+                  <include>org.apache.arrow:arrow-memory-netty</include>
                   <include>com.google.flatbuffers:flatbuffers-java</include>
                   <include>io.grpc:*</include>
                   <include>io.netty:*</include>
@@ -359,6 +362,7 @@ limitations under the License.
                   <include>com.google.api.grpc:proto-google-common-protos</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>com.google.guava:guava</include>
+                  <include>com.google.guava:failureaccess</include>
                   <include>io.perfmark:perfmark-api</include>
                 </includes>
                 <excludes>
