@@ -3,6 +3,7 @@ package org.apache.arrow.flight.spark;
 import java.util.Set;
 
 import org.apache.arrow.flight.Location;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.connector.catalog.SupportsRead;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCapability;
@@ -15,10 +16,10 @@ public class FlightTable implements Table, SupportsRead {
     private final String name;
     private final Location location;
     private final String sql;
-    private final FlightClientOptions clientOptions;
+    private final Broadcast<FlightClientOptions> clientOptions;
     private StructType schema;
 
-    public FlightTable(String name, Location location, String sql, FlightClientOptions clientOptions) {
+    public FlightTable(String name, Location location, String sql, Broadcast<FlightClientOptions> clientOptions) {
         this.name = name;
         this.location = location;
         this.sql = sql;

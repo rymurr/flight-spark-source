@@ -1,36 +1,48 @@
 package org.apache.arrow.flight.spark;
 
+import java.net.URISyntaxException;
 import java.util.Map;
 
 import org.apache.arrow.flight.Location;
 import org.apache.spark.sql.connector.catalog.TableProvider;
 import org.apache.spark.sql.connector.expressions.Transform;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 
 public class DefaultSource implements TableProvider, DataSourceRegister {
+  private SparkSession spark;
+
+  private SparkSession getSparkSession() {
+    if (spark == null) {
+      spark = SparkSession.getActiveSession().get();
+    }
+    return spark;
+  }
 
   private FlightTable makeTable(CaseInsensitiveStringMap options) {
-    String protocol = options.getOrDefault("protocol", "grpc");
+    String uri = options.getOrDefault("uri", "grpc://localhost:47470");
     Location location;
-    if (protocol == "grpc+tls") {
-      location = Location.forGrpcTls(
-        options.getOrDefault("host", "localhost"),
-        Integer.parseInt(options.getOrDefault("port", "47470"))
-      );
-    } else {
-      location = Location.forGrpcInsecure(
-        options.getOrDefault("host", "localhost"),
-        Integer.parseInt(options.getOrDefault("port", "47470"))
-      );
+    try {
+      location = new Location(uri);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
     }
 
     String sql = options.getOrDefault("path", "");
+    String username = options.getOrDefault("username", "");
+    String password = options.getOrDefault("password", "");
     String trustedCertificates = options.getOrDefault("trustedCertificates", "");
+    String clientCertificate = options.getOrDefault("clientCertificate", "");
+    String clientKey = options.getOrDefault("clientKey", "");
 
-    FlightClientOptions clientOptions = trustedCertificates.isEmpty() ? null : new FlightClientOptions(trustedCertificates);
+    Broadcast<FlightClientOptions> clientOptions = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext()).broadcast(
+      new FlightClientOptions(username, password, trustedCertificates, clientCertificate, clientKey)
+    );
 
     return new FlightTable(
       String.format("{} Location {} Command {}", shortName(), location.getUri().toString(), sql),
