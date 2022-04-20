@@ -30,6 +30,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.ScanBuilder;
 import org.apache.spark.sql.connector.read.SupportsPushDownFilters;
@@ -51,12 +52,12 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     private SchemaResult flightSchema;
     private StructType schema;
     private final Location location;
-    private final FlightClientOptions clientOptions;
+    private final Broadcast<FlightClientOptions> clientOptions;
     private FlightDescriptor descriptor;
     private String sql;
     private Filter[] pushed;
 
-    public FlightScanBuilder(Location location, FlightClientOptions clientOptions, String sql) {
+    public FlightScanBuilder(Location location, Broadcast<FlightClientOptions> clientOptions, String sql) {
         this.location = location;
         this.clientOptions = clientOptions;
         this.sql = sql;
@@ -83,7 +84,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     }
 
     private void getFlightSchema(FlightDescriptor descriptor) {
-        try (Client client = new Client(location, clientOptions)) {
+        try (Client client = new Client(location, clientOptions.getValue())) {
             flightSchema = client.get().getSchema(descriptor);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -92,7 +93,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
 
     @Override
     public Scan build() {
-        try (Client client = new Client(location, clientOptions)) {
+        try (Client client = new Client(location, clientOptions.getValue())) {
             FlightInfo info = client.get().getInfo(FlightDescriptor.command(sql.getBytes()));
             return new FlightScan(readSchema(), info, clientOptions);
         } catch (Exception e) {

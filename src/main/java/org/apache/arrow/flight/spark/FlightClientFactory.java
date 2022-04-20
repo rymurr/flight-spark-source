@@ -1,3 +1,4 @@
+// Portions of this file from:
 /*
  * Copyright (C) 2019 Ryan Murray
  *
@@ -26,21 +27,32 @@ import org.apache.arrow.memory.RootAllocator;
 public class FlightClientFactory implements AutoCloseable {
   private final BufferAllocator allocator = new RootAllocator();
   private final Location defaultLocation;
-  private InputStream trustedCertificates;
+  private final FlightClientOptions clientOptions;
 
   public FlightClientFactory(Location defaultLocation, FlightClientOptions clientOptions) {
     this.defaultLocation = defaultLocation;
-    if (clientOptions != null) {
-      this.trustedCertificates = new ByteArrayInputStream(clientOptions.getTrustedCertificates().getBytes());
-    }
+    this.clientOptions = clientOptions;
   }
 
   public FlightClient apply() {
     FlightClient.Builder builder = FlightClient.builder(allocator, defaultLocation);
-    if (trustedCertificates != null) {
-      builder.trustedCertificates(trustedCertificates);
+
+    if (!clientOptions.getTrustedCertificates().isEmpty()) {
+      builder.trustedCertificates(new ByteArrayInputStream(clientOptions.getTrustedCertificates().getBytes()));
     }
-    return builder.build();
+
+    if (!clientOptions.getClientCertificate().isEmpty()) {
+      InputStream clientCert = new ByteArrayInputStream(clientOptions.getClientCertificate().getBytes());
+      InputStream clientKey = new ByteArrayInputStream(clientOptions.getClientKey().getBytes());
+      builder.clientCertificate(clientCert, clientKey);
+    }
+
+    FlightClient client = builder.build();
+    if (!clientOptions.getUsername().isEmpty()) {
+      client.authenticateBasic(clientOptions.getUsername(), clientOptions.getPassword());
+    }
+
+    return client;
   }
 
   @Override

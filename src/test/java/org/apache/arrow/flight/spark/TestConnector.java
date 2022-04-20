@@ -45,10 +45,10 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -61,8 +61,7 @@ public class TestConnector {
   private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
   private static Location location;
   private static FlightServer server;
-  private static SparkConf conf;
-  private static JavaSparkContext sc;
+  private static SparkSession spark;
   private static FlightSparkContext csc;
 
   @BeforeClass
@@ -83,22 +82,21 @@ public class TestConnector {
       }).build()
     );
     location = server.getLocation();
-    conf = new SparkConf()
-      .setAppName("flightTest")
-      .setMaster("local[*]")
-      .set("spark.driver.allowMultipleContexts", "true")
-      .set("spark.flight.endpoint.host", location.getUri().getHost())
-      .set("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
-      .set("spark.flight.auth.username", "xxx")
-      .set("spark.flight.auth.password", "yyy")
-    ;
-    sc = new JavaSparkContext(conf);
-    csc = FlightSparkContext.flightContext(sc);
+    spark = SparkSession.builder()
+      .appName("flightTest")
+      .master("local[*]")
+      .config("spark.driver.allowMultipleContexts", "true")
+      .config("spark.flight.endpoint.host", location.getUri().getHost())
+      .config("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
+      .config("spark.flight.auth.username", "xxx")
+      .config("spark.flight.auth.password", "yyy")
+      .getOrCreate();
+    csc = new FlightSparkContext(spark);
   }
 
   @AfterClass
   public static void tearDown() throws Exception {
-    AutoCloseables.close(server, allocator, sc);
+    AutoCloseables.close(server, allocator, spark);
   }
 
   private class DummyObjectOutputStream extends ObjectOutputStream {
@@ -109,8 +107,8 @@ public class TestConnector {
 
   @Test(expected = None.class)
   public void testFlightPartitionReaderFactorySerialization() throws IOException {
-    FlightClientOptions clientOptions = new FlightClientOptions("FooBar");
-    FlightPartitionReaderFactory readerFactory = new FlightPartitionReaderFactory(clientOptions);
+    FlightClientOptions clientOptions = new FlightClientOptions("xxx", "yyy", "FooBar", "FooBar", "FooBar");
+    FlightPartitionReaderFactory readerFactory = new FlightPartitionReaderFactory(JavaSparkContext.fromSparkContext(spark.sparkContext()).broadcast(clientOptions));
 
     try (ObjectOutputStream oos = new DummyObjectOutputStream()) {
       oos.writeObject(readerFactory);

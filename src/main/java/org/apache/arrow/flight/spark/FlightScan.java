@@ -3,6 +3,7 @@ package org.apache.arrow.flight.spark;
 import org.apache.spark.sql.connector.read.Scan;
 
 import org.apache.arrow.flight.FlightInfo;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
@@ -11,9 +12,9 @@ import org.apache.spark.sql.types.StructType;
 public class FlightScan implements Scan, Batch {
     private final StructType schema;
     private final FlightInfo info;
-    private final FlightClientOptions clientOptions;
+    private final Broadcast<FlightClientOptions> clientOptions;
 
-    public FlightScan(StructType schema, FlightInfo info, FlightClientOptions clientOptions) {
+    public FlightScan(StructType schema, FlightInfo info, Broadcast<FlightClientOptions> clientOptions) {
         this.schema = schema;
         this.info = info;
         this.clientOptions = clientOptions;
