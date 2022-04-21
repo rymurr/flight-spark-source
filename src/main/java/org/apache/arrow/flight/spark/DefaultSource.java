@@ -1,6 +1,8 @@
 package org.apache.arrow.flight.spark;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.flight.Location;
@@ -39,9 +41,17 @@ public class DefaultSource implements TableProvider, DataSourceRegister {
     String trustedCertificates = options.getOrDefault("trustedCertificates", "");
     String clientCertificate = options.getOrDefault("clientCertificate", "");
     String clientKey = options.getOrDefault("clientKey", "");
+    String clientId = options.getOrDefault("clientId", "");
+    String clientSecret = options.getOrDefault("clientSecret", "");
+    String scope = options.getOrDefault("clientScope", "");
+    List<FlightClientMiddlewareFactory> middleware = new ArrayList<>();
+    if (!clientId.isEmpty()) {
+      middleware.add(new AADClientMiddlewareFactory(clientId, clientSecret, scope));
+    }
+
 
     Broadcast<FlightClientOptions> clientOptions = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext()).broadcast(
-      new FlightClientOptions(username, password, trustedCertificates, clientCertificate, clientKey)
+      new FlightClientOptions(username, password, trustedCertificates, clientCertificate, clientKey, middleware)
     );
 
     return new FlightTable(
