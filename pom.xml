@@ -365,6 +365,7 @@ limitations under the License.
                   <include>com.google.guava:guava</include>
                   <include>com.google.guava:failureaccess</include>
                   <include>io.perfmark:perfmark-api</include>
+                  <include>com.azure:azure-identity</include>
                 </includes>
                 <excludes>
                   <exclude>io.netty:netty-transport-native-unix-common</exclude>
