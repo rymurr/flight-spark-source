@@ -86,6 +86,7 @@ public class TestConnector {
     spark = SparkSession.builder()
       .appName("flightTest")
       .master("local[*]")
+      .config("spark.driver.host", "127.0.0.1")
       .config("spark.driver.allowMultipleContexts", "true")
       .config("spark.flight.endpoint.host", location.getUri().getHost())
       .config("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
