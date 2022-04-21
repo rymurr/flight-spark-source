@@ -18,6 +18,7 @@ package org.apache.arrow.flight.spark;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -107,7 +108,8 @@ public class TestConnector {
 
   @Test(expected = None.class)
   public void testFlightPartitionReaderFactorySerialization() throws IOException {
-    FlightClientOptions clientOptions = new FlightClientOptions("xxx", "yyy", "FooBar", "FooBar", "FooBar");
+    List<FlightClientMiddlewareFactory> middleware = new ArrayList<>();
+    FlightClientOptions clientOptions = new FlightClientOptions("xxx", "yyy", "FooBar", "FooBar", "FooBar", middleware);
     FlightPartitionReaderFactory readerFactory = new FlightPartitionReaderFactory(JavaSparkContext.fromSparkContext(spark.sparkContext()).broadcast(clientOptions));
 
     try (ObjectOutputStream oos = new DummyObjectOutputStream()) {

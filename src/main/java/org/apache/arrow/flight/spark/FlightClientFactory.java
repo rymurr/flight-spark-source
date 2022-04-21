@@ -47,6 +47,9 @@ public class FlightClientFactory implements AutoCloseable {
       builder.clientCertificate(clientCert, clientKey);
     }
 
+    // Add client middleware
+    clientOptions.getMiddleware().stream().forEach(middleware -> builder.intercept(middleware));
+
     FlightClient client = builder.build();
     if (!clientOptions.getUsername().isEmpty()) {
       client.authenticateBasic(clientOptions.getUsername(), clientOptions.getPassword());
