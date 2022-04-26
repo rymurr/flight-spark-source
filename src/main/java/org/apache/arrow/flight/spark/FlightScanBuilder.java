@@ -85,6 +85,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
 
     private void getFlightSchema(FlightDescriptor descriptor) {
         try (Client client = new Client(location, clientOptions.getValue())) {
+            LOGGER.info("getSchema() descriptor: %s", descriptor);
             flightSchema = client.get().getSchema(descriptor);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -94,7 +95,9 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     @Override
     public Scan build() {
         try (Client client = new Client(location, clientOptions.getValue())) {
-            FlightInfo info = client.get().getInfo(FlightDescriptor.command(sql.getBytes()));
+            FlightDescriptor descriptor = FlightDescriptor.command(sql.getBytes());
+            LOGGER.info("getInfo() descriptor: %s", descriptor);
+            FlightInfo info = client.get().getInfo(descriptor);
             return new FlightScan(readSchema(), info, clientOptions);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -156,7 +159,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     }
 
     private void mergeWhereDescriptors(String whereClause) {
-        sql = String.format("select * from (%s) where %s", sql, whereClause);
+        sql = String.format("select * from (%s) as where_merge where %s", sql, whereClause);
         descriptor = getDescriptor(sql);
     }
 
@@ -266,7 +269,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     }
 
     private void mergeProjDescriptors(String projClause) {
-        sql = String.format("select %s from (%s)", projClause, sql);
+        sql = String.format("select %s from (%s) as proj_merge", projClause, sql);
         descriptor = getDescriptor(sql);
     }
 

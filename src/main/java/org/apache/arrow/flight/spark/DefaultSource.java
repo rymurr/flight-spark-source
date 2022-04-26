@@ -41,12 +41,10 @@ public class DefaultSource implements TableProvider, DataSourceRegister {
     String trustedCertificates = options.getOrDefault("trustedCertificates", "");
     String clientCertificate = options.getOrDefault("clientCertificate", "");
     String clientKey = options.getOrDefault("clientKey", "");
-    String clientId = options.getOrDefault("clientId", "");
-    String clientSecret = options.getOrDefault("clientSecret", "");
-    String scope = options.getOrDefault("clientScope", "");
+    String token = options.getOrDefault("token", "");
     List<FlightClientMiddlewareFactory> middleware = new ArrayList<>();
-    if (!clientId.isEmpty()) {
-      middleware.add(new AADClientMiddlewareFactory(clientId, clientSecret, scope));
+    if (!token.isEmpty()) {
+      middleware.add(new TokenClientMiddlewareFactory(token));
     }
 
 

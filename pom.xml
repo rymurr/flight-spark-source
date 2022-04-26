@@ -31,8 +31,6 @@
     <arrow.version>7.0.0</arrow.version>
     <spark.version>3.2.1</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <jackson-core.version>2.12.3</jackson-core.version>
-    <azure.version>1.2.0</azure.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -365,13 +363,23 @@ limitations under the License.
                   <include>com.google.guava:guava</include>
                   <include>com.google.guava:failureaccess</include>
                   <include>io.perfmark:perfmark-api</include>
-                  <include>com.azure:azure-identity</include>
                 </includes>
                 <excludes>
                   <exclude>io.netty:netty-transport-native-unix-common</exclude>
                   <exclude>io.netty:netty-transport-native-epoll</exclude>
                 </excludes>
               </artifactSet>
+              <filters>
+                <filter>
+                  <!-- filter out signature files from signed dependencies, else repackaging fails with security ex -->
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
               <relocations>
                 <relocation>
                   <pattern>com.google.protobuf</pattern>
@@ -402,7 +410,6 @@ limitations under the License.
                   <pattern>META-INF.native.netty_</pattern>
                   <shadedPattern>META-INF.native.cdap_netty_</shadedPattern>
                 </relocation>
-
               </relocations>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
@@ -415,17 +422,6 @@ limitations under the License.
       </plugin>
     </plugins>
   </build>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.azure</groupId>
-        <artifactId>azure-sdk-bom</artifactId>
-        <version>${azure.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
@@ -489,12 +485,12 @@ limitations under the License.
     <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-core</artifactId>
-        <version>${jackson-core.version}</version>
+        <version>2.12.6</version>
     </dependency>
     <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
-        <version>${jackson-core.version}</version>
+        <version>2.12.6.1</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -556,10 +552,6 @@ limitations under the License.
       <artifactId>junit</artifactId>
       <version>4.13.1</version>
       <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>azure-identity</artifactId>
     </dependency>
   </dependencies>
 
