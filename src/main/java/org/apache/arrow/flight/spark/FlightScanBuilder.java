@@ -1,4 +1,3 @@
-// Portions of this file where taken from:
 /*
  * Copyright (C) 2019 Ryan Murray
  *
