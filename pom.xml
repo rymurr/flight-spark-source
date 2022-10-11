@@ -216,6 +216,7 @@ limitations under the License.
             <exclude>**/Jenkinsfile</exclude>
             <exclude>**/LICENSE</exclude>
             <exclude>**/NOTICE</exclude>
+            <exclude>**/AUTHORS</exclude>
             <exclude>**/postinstall</exclude>
             <exclude>**/.babelrc</exclude>
             <exclude>**/.checkstyle</exclude>
