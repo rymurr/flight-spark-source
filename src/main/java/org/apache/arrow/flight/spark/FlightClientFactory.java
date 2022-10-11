@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Ryan Murray
+ * Copyright (C) 2019 The flight-spark-source Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,38 +15,46 @@
  */
 package org.apache.arrow.flight.spark;
 
-import java.util.Iterator;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 
-import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.Result;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
 public class FlightClientFactory implements AutoCloseable {
   private final BufferAllocator allocator = new RootAllocator();
   private final Location defaultLocation;
-  private final String username;
-  private final String password;
-  private final boolean parallel;
+  private final FlightClientOptions clientOptions;
 
-  public FlightClientFactory(Location defaultLocation, String username, String password, boolean parallel) {
+  public FlightClientFactory(Location defaultLocation, FlightClientOptions clientOptions) {
     this.defaultLocation = defaultLocation;
-    this.username = username;
-    this.password = (password == null || password.equals("$NULL$")) ? null : password;
-    this.parallel = parallel;
+    this.clientOptions = clientOptions;
   }
 
   public FlightClient apply() {
-    FlightClient client = FlightClient.builder(allocator, defaultLocation).build();
-    client.authenticateBasic(username, password);
-    if (parallel) {
-      Iterator<Result> res = client.doAction(new Action("PARALLEL"));
-      res.forEachRemaining(Object::toString);
-    }
-    return client;
+    FlightClient.Builder builder = FlightClient.builder(allocator, defaultLocation);
 
+    if (!clientOptions.getTrustedCertificates().isEmpty()) {
+      builder.trustedCertificates(new ByteArrayInputStream(clientOptions.getTrustedCertificates().getBytes()));
+    }
+
+    if (!clientOptions.getClientCertificate().isEmpty()) {
+      InputStream clientCert = new ByteArrayInputStream(clientOptions.getClientCertificate().getBytes());
+      InputStream clientKey = new ByteArrayInputStream(clientOptions.getClientKey().getBytes());
+      builder.clientCertificate(clientCert, clientKey);
+    }
+
+    // Add client middleware
+    clientOptions.getMiddleware().stream().forEach(middleware -> builder.intercept(middleware));
+
+    FlightClient client = builder.build();
+    if (!clientOptions.getUsername().isEmpty()) {
+      client.authenticateBasic(clientOptions.getUsername(), clientOptions.getPassword());
+    }
+
+    return client;
   }
 
   @Override

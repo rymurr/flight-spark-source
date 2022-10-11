@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Ryan Murray
+ * Copyright (C) 2019 The flight-spark-source Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.spark.sql.execution.arrow.FlightArrowUtils;
 import org.apache.spark.sql.types.Decimal;
 import org.apache.spark.sql.vectorized.ColumnVector;
@@ -59,7 +60,6 @@ import org.apache.spark.sql.vectorized.ColumnarArray;
 import org.apache.spark.sql.vectorized.ColumnarMap;
 import org.apache.spark.unsafe.types.UTF8String;
 
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A column vector backed by Apache Arrow. Currently calendar interval type and map type are not

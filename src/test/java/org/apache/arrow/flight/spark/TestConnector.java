@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Ryan Murray
+ * Copyright (C) 2019 The flight-spark-source Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
  */
 package org.apache.arrow.flight.spark;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -42,14 +46,15 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.Test.None;
 
 import com.google.common.collect.ImmutableList;
 
@@ -57,8 +62,7 @@ public class TestConnector {
   private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
   private static Location location;
   private static FlightServer server;
-  private static SparkConf conf;
-  private static JavaSparkContext sc;
+  private static SparkSession spark;
   private static FlightSparkContext csc;
 
   @BeforeClass
@@ -79,22 +83,49 @@ public class TestConnector {
       }).build()
     );
     location = server.getLocation();
-    conf = new SparkConf()
-      .setAppName("flightTest")
-      .setMaster("local[*]")
-      .set("spark.driver.allowMultipleContexts", "true")
-      .set("spark.flight.endpoint.host", location.getUri().getHost())
-      .set("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
-      .set("spark.flight.auth.username", "xxx")
-      .set("spark.flight.auth.password", "yyy")
-    ;
-    sc = new JavaSparkContext(conf);
-    csc = FlightSparkContext.flightContext(sc);
+    spark = SparkSession.builder()
+      .appName("flightTest")
+      .master("local[*]")
+      .config("spark.driver.host", "127.0.0.1")
+      .config("spark.driver.allowMultipleContexts", "true")
+      .config("spark.flight.endpoint.host", location.getUri().getHost())
+      .config("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
+      .config("spark.flight.auth.username", "xxx")
+      .config("spark.flight.auth.password", "yyy")
+      .getOrCreate();
+    csc = new FlightSparkContext(spark);
   }
 
   @AfterClass
   public static void tearDown() throws Exception {
-    AutoCloseables.close(server, allocator, sc);
+    AutoCloseables.close(server, allocator, spark);
+  }
+
+  private class DummyObjectOutputStream extends ObjectOutputStream {
+    public DummyObjectOutputStream() throws IOException {
+      super(new ByteArrayOutputStream());
+    }
+  }
+
+  @Test(expected = None.class)
+  public void testFlightPartitionReaderFactorySerialization() throws IOException {
+    List<FlightClientMiddlewareFactory> middleware = new ArrayList<>();
+    FlightClientOptions clientOptions = new FlightClientOptions("xxx", "yyy", "FooBar", "FooBar", "FooBar", middleware);
+    FlightPartitionReaderFactory readerFactory = new FlightPartitionReaderFactory(JavaSparkContext.fromSparkContext(spark.sparkContext()).broadcast(clientOptions));
+
+    try (ObjectOutputStream oos = new DummyObjectOutputStream()) {
+      oos.writeObject(readerFactory);
+    }
+  }
+
+  @Test(expected = None.class)
+  public void testFlightPartitionSerialization() throws IOException {
+    Ticket ticket = new Ticket("FooBar".getBytes());
+    FlightEndpoint endpoint = new FlightEndpoint(ticket, location);
+    FlightPartition partition = new FlightPartition(new FlightEndpointWrapper(endpoint));
+    try (ObjectOutputStream oos = new DummyObjectOutputStream()) {
+      oos.writeObject(partition);
+    }
   }
 
   @Test
@@ -143,17 +174,6 @@ public class TestConnector {
     Assert.assertTrue(count < countOriginal);
   }
 
-  @Test
-  public void testParallel() {
-    String easySql = "select * from \"@dremio\".tpch_spark limit 100000";
-    SizeConsumer c = new SizeConsumer();
-    csc.readSql(easySql, true).toLocalIterator().forEachRemaining(c);
-    long width = c.width;
-    long length = c.length;
-    Assert.assertEquals(5, width);
-    Assert.assertEquals(40, length);
-  }
-
   private static class TestProducer extends NoOpFlightProducer {
     private boolean parallel = false;
 
@@ -167,7 +187,7 @@ public class TestConnector {
     @Override
     public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
       Schema schema;
-      List<FlightEndpoint> endpoints;
+      List<org.apache.arrow.flight.FlightEndpoint> endpoints;
       if (parallel) {
         endpoints = ImmutableList.of(new FlightEndpoint(new Ticket(descriptor.getCommand()), location),
           new FlightEndpoint(new Ticket(descriptor.getCommand()), location));

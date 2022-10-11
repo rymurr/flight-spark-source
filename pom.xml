@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright (C) 2019 Ryan Murray
+    Copyright (C) 2019 The flight-spark-source Authors
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -26,16 +26,20 @@
   <version>1.0-SNAPSHOT</version>
 
   <properties>
-    <arrow.version>0.17.0</arrow.version>
-    <spark.version>2.4.5</spark.version>
+    <!-- Dependency Versions -->
+    <scala.version>2.12.14</scala.version>
+    <arrow.version>7.0.0</arrow.version>
+    <spark.version>3.2.1</spark.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
   <build>
     <extensions>
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.5.0.Final</version>
+        <version>1.7.0</version>
       </extension>
     </extensions>
 
@@ -77,7 +81,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
           </inlineHeader>
           <properties>
-            <owner>Ryan Murray</owner>
+            <owner>The ${artifactId} Authors</owner>
             <project.inceptionYear>2019</project.inceptionYear>
           </properties>
           <project>
@@ -212,6 +216,7 @@ limitations under the License.
             <exclude>**/Jenkinsfile</exclude>
             <exclude>**/LICENSE</exclude>
             <exclude>**/NOTICE</exclude>
+            <exclude>**/AUTHORS</exclude>
             <exclude>**/postinstall</exclude>
             <exclude>**/.babelrc</exclude>
             <exclude>**/.checkstyle</exclude>
@@ -299,13 +304,14 @@ limitations under the License.
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.1</version>
         <configuration>
-          <source>8</source>
-          <target>8</target>
+          <source>11</source>
+          <target>11</target>
         </configuration>
       </plugin>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+        <version>4.6.1</version>
         <configuration>
           <sendJavaToScalac>false</sendJavaToScalac>
         </configuration>
@@ -330,7 +336,7 @@ limitations under the License.
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -344,7 +350,8 @@ limitations under the License.
                   <include>org.apache.arrow:flight-grpc</include>
                   <include>org.apache.arrow:arrow-vector</include>
                   <include>org.apache.arrow:arrow-format</include>
-                  <include>org.apache.arrow:arrow-memory</include>
+                  <include>org.apache.arrow:arrow-memory-core</include>
+                  <include>org.apache.arrow:arrow-memory-netty</include>
                   <include>com.google.flatbuffers:flatbuffers-java</include>
                   <include>io.grpc:*</include>
                   <include>io.netty:*</include>
@@ -355,6 +362,7 @@ limitations under the License.
                   <include>com.google.api.grpc:proto-google-common-protos</include>
                   <include>com.google.protobuf:protobuf-java</include>
                   <include>com.google.guava:guava</include>
+                  <include>com.google.guava:failureaccess</include>
                   <include>io.perfmark:perfmark-api</include>
                 </includes>
                 <excludes>
@@ -362,6 +370,17 @@ limitations under the License.
                   <exclude>io.netty:netty-transport-native-epoll</exclude>
                 </excludes>
               </artifactSet>
+              <filters>
+                <filter>
+                  <!-- filter out signature files from signed dependencies, else repackaging fails with security ex -->
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
               <relocations>
                 <relocation>
                   <pattern>com.google.protobuf</pattern>
@@ -392,7 +411,6 @@ limitations under the License.
                   <pattern>META-INF.native.netty_</pattern>
                   <shadedPattern>META-INF.native.cdap_netty_</shadedPattern>
                 </relocation>
-
               </relocations>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
@@ -408,7 +426,7 @@ limitations under the License.
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.11</artifactId>
+      <artifactId>spark-core_2.12</artifactId>
       <version>${spark.version}</version>
       <exclusions>
         <exclusion>
@@ -435,7 +453,7 @@ limitations under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.11</artifactId>
+      <artifactId>spark-sql_2.12</artifactId>
       <version>${spark.version}</version>
       <exclusions>
         <exclusion>
@@ -464,6 +482,17 @@ limitations under the License.
         </exclusion>
       </exclusions>
     </dependency>
+    <!-- We don't need jackson but if we don't set this Spark doesn't work and unit tests fail -->
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-core</artifactId>
+        <version>2.12.6</version>
+    </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>2.12.6.1</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>flight-core</artifactId>
@@ -477,7 +506,7 @@ limitations under the License.
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
-      <version>2.11.6</version>
+      <version>${scala.version}</version>
     </dependency>
 
     <dependency>

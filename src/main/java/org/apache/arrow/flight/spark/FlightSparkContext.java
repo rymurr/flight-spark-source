@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Ryan Murray
+ * Copyright (C) 2019 The flight-spark-source Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,61 +16,41 @@
 package org.apache.arrow.flight.spark;
 
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.DataFrameReader;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
 
 public class FlightSparkContext {
 
   private SparkConf conf;
+
   private final DataFrameReader reader;
 
-  private FlightSparkContext(SparkContext sc, SparkConf conf) {
-    SQLContext sqlContext = SQLContext.getOrCreate(sc);
-    this.conf = conf;
-    reader = sqlContext.read().format("org.apache.arrow.flight.spark");
-  }
-
-  public static FlightSparkContext flightContext(JavaSparkContext sc) {
-    return new FlightSparkContext(sc.sc(), sc.getConf());
+  public FlightSparkContext(SparkSession spark) {
+    this.conf = spark.sparkContext().getConf();
+    reader = spark.read().format("org.apache.arrow.flight.spark");
   }
 
   public Dataset<Row> read(String s) {
     return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
-      .option("host", conf.get("spark.flight.endpoint.host"))
+      .option("uri", String.format(
+        "grpc://%s:%s",
+        conf.get("spark.flight.endpoint.host"),
+        conf.get("spark.flight.endpoint.port")))
       .option("username", conf.get("spark.flight.auth.username"))
       .option("password", conf.get("spark.flight.auth.password"))
-      .option("parallel", false)
       .load(s);
   }
 
   public Dataset<Row> readSql(String s) {
     return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
-      .option("host", conf.get("spark.flight.endpoint.host"))
+      .option("uri", String.format(
+        "grpc://%s:%s",
+        conf.get("spark.flight.endpoint.host"),
+        conf.get("spark.flight.endpoint.port")))
       .option("username", conf.get("spark.flight.auth.username"))
       .option("password", conf.get("spark.flight.auth.password"))
-      .option("parallel", false)
-      .load(s);
-  }
-
-  public Dataset<Row> read(String s, boolean parallel) {
-    return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
-      .option("host", conf.get("spark.flight.endpoint.host"))
-      .option("username", conf.get("spark.flight.auth.username"))
-      .option("password", conf.get("spark.flight.auth.password"))
-      .option("parallel", parallel)
-      .load(s);
-  }
-
-  public Dataset<Row> readSql(String s, boolean parallel) {
-    return reader.option("port", Integer.parseInt(conf.get("spark.flight.endpoint.port")))
-      .option("host", conf.get("spark.flight.endpoint.host"))
-      .option("username", conf.get("spark.flight.auth.username"))
-      .option("password", conf.get("spark.flight.auth.password"))
-      .option("parallel", parallel)
       .load(s);
   }
 }

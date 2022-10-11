@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Ryan Murray
+ * Copyright (C) 2019 The flight-spark-source Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,49 +13,81 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.spark;
 
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.arrow.flight.Location;
+import org.apache.spark.sql.connector.catalog.TableProvider;
+import org.apache.spark.sql.connector.expressions.Transform;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.connector.catalog.Table;
+import org.apache.spark.sql.sources.DataSourceRegister;
+import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.sources.v2.DataSourceOptions;
-import org.apache.spark.sql.sources.v2.DataSourceV2;
-import org.apache.spark.sql.sources.v2.ReadSupport;
-import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 
-public class DefaultSource implements DataSourceV2, ReadSupport {
+public class DefaultSource implements TableProvider, DataSourceRegister {
+  private SparkSession spark;
 
-  private SparkSession lazySpark;
-  private JavaSparkContext lazySparkContext;
+  private SparkSession getSparkSession() {
+    if (spark == null) {
+      spark = SparkSession.getActiveSession().get();
+    }
+    return spark;
+  }
 
-  public DataSourceReader createReader(DataSourceOptions dataSourceOptions) {
-    Location defaultLocation = Location.forGrpcInsecure(
-      dataSourceOptions.get("host").orElse("localhost"),
-      dataSourceOptions.getInt("port", 47470)
+  private FlightTable makeTable(CaseInsensitiveStringMap options) {
+    String uri = options.getOrDefault("uri", "grpc://localhost:47470");
+    Location location;
+    try {
+      location = new Location(uri);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+
+    String sql = options.getOrDefault("path", "");
+    String username = options.getOrDefault("username", "");
+    String password = options.getOrDefault("password", "");
+    String trustedCertificates = options.getOrDefault("trustedCertificates", "");
+    String clientCertificate = options.getOrDefault("clientCertificate", "");
+    String clientKey = options.getOrDefault("clientKey", "");
+    String token = options.getOrDefault("token", "");
+    List<FlightClientMiddlewareFactory> middleware = new ArrayList<>();
+    if (!token.isEmpty()) {
+      middleware.add(new TokenClientMiddlewareFactory(token));
+    }
+
+
+    Broadcast<FlightClientOptions> clientOptions = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext()).broadcast(
+      new FlightClientOptions(username, password, trustedCertificates, clientCertificate, clientKey, middleware)
     );
-    String sql = dataSourceOptions.get("path").orElse("");
-    FlightDataSourceReader.FactoryOptions options = new FlightDataSourceReader.FactoryOptions(
-      defaultLocation,
+
+    return new FlightTable(
+      String.format("{} Location {} Command {}", shortName(), location.getUri().toString(), sql),
+      location,
       sql,
-      dataSourceOptions.get("username").orElse("anonymous"),
-      dataSourceOptions.get("password").orElse(null),
-      dataSourceOptions.getBoolean("parallel", false), null);
-    Broadcast<FlightDataSourceReader.FactoryOptions> bOptions = lazySparkContext().broadcast(options);
-    return new FlightDataSourceReader(bOptions);
+      clientOptions
+    );
   }
 
-  private SparkSession lazySparkSession() {
-    if (lazySpark == null) {
-      this.lazySpark = SparkSession.builder().getOrCreate();
-    }
-    return lazySpark;
+  @Override
+  public StructType inferSchema(CaseInsensitiveStringMap options) {
+    return makeTable(options).schema();
   }
 
-  private JavaSparkContext lazySparkContext() {
-    if (lazySparkContext == null) {
-      this.lazySparkContext = new JavaSparkContext(lazySparkSession().sparkContext());
-    }
-    return lazySparkContext;
+  @Override
+  public String shortName() {
+    return "flight";
+  }
+
+  @Override
+  public Table getTable(StructType schema, Transform[] partitioning, Map<String, String> options) {
+    return makeTable(new CaseInsensitiveStringMap(options));
   }
 }
