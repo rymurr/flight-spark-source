@@ -1,5 +1,5 @@
 @REM
-@REM Copyright (C) 2019 Ryan Murray
+@REM Copyright (C) 2019 The flight-spark-source Authors
 @REM
 @REM Licensed under the Apache License, Version 2.0 (the "License");
 @REM you may not use this file except in compliance with the License.
