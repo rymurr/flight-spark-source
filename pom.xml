@@ -81,7 +81,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
           </inlineHeader>
           <properties>
-            <owner>The ${artifactId} Authors</owner>
+            <owner>The ${project.artifactId} Authors</owner>
             <project.inceptionYear>2019</project.inceptionYear>
           </properties>
           <project>
