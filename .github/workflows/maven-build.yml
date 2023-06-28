@@ -3,10 +3,14 @@
 name: Java CI with Maven
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  release:
+    types:
+      - published
 
 jobs:
   build:
@@ -21,3 +25,9 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B -V verify -Dmaven.javadoc.skip=true --file pom.xml
+    - name: Archive JAR artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-without-markdown
+        path: |
+          target/flight-spark-source-1.0-SNAPSHOT-shaded.jar

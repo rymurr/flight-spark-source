@@ -67,7 +67,10 @@ public class TestConnector {
 
   @BeforeClass
   public static void setUp() throws Exception {
-    server = FlightTestUtil.getStartedServer(location -> FlightServer.builder(allocator, location, new TestProducer()).authHandler(
+    FlightServer.Builder builder = FlightServer.builder(allocator,
+      Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, /*port*/ 0),
+      new TestProducer());
+    builder.authHandler(
       new ServerAuthHandler() {
         @Override
         public Optional<String> isValid(byte[] token) {
@@ -80,8 +83,9 @@ public class TestConnector {
           outgoing.send(new byte[0]);
           return true;
         }
-      }).build()
-    );
+      });/*port*/
+    server = builder.build();
+    server.start();
     location = server.getLocation();
     spark = SparkSession.builder()
       .appName("flightTest")
