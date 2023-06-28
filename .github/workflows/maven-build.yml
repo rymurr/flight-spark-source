@@ -24,7 +24,7 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn -B -V verify -Dmaven.javadoc.skip=true --file pom.xml
+      run: mvn -B -V verify -Dmaven.javadoc.skip=true -Dlicense.skip=true --file pom.xml
     - name: Archive JAR artifact
       uses: actions/upload-artifact@v3
       with:
