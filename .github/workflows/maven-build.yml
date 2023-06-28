@@ -28,6 +28,6 @@ jobs:
     - name: Archive JAR artifact
       uses: actions/upload-artifact@v3
       with:
-        name: dist-without-markdown
+        name: flight-spark-source-shaded-jar
         path: |
           target/flight-spark-source-1.0-SNAPSHOT-shaded.jar
