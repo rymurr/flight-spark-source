@@ -20,6 +20,7 @@ import java.io.InputStream;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
@@ -27,6 +28,8 @@ public class FlightClientFactory implements AutoCloseable {
   private final BufferAllocator allocator = new RootAllocator();
   private final Location defaultLocation;
   private final FlightClientOptions clientOptions;
+
+  private CredentialCallOption callOption;
 
   public FlightClientFactory(Location defaultLocation, FlightClientOptions clientOptions) {
     this.defaultLocation = defaultLocation;
@@ -40,8 +43,9 @@ public class FlightClientFactory implements AutoCloseable {
       builder.trustedCertificates(new ByteArrayInputStream(clientOptions.getTrustedCertificates().getBytes()));
     }
 
-    if (!clientOptions.getClientCertificate().isEmpty()) {
-      InputStream clientCert = new ByteArrayInputStream(clientOptions.getClientCertificate().getBytes());
+    String clientCertificate = clientOptions.getClientCertificate();
+    if (clientCertificate != null && !clientCertificate.isEmpty()) {
+      InputStream clientCert = new ByteArrayInputStream(clientCertificate.getBytes());
       InputStream clientKey = new ByteArrayInputStream(clientOptions.getClientKey().getBytes());
       builder.clientCertificate(clientCert, clientKey);
     }
@@ -50,11 +54,16 @@ public class FlightClientFactory implements AutoCloseable {
     clientOptions.getMiddleware().stream().forEach(middleware -> builder.intercept(middleware));
 
     FlightClient client = builder.build();
-    if (!clientOptions.getUsername().isEmpty()) {
-      client.authenticateBasic(clientOptions.getUsername(), clientOptions.getPassword());
+    String username = clientOptions.getUsername();
+    if (username != null && !username.isEmpty()) {
+      this.callOption = client.authenticateBasicToken(clientOptions.getUsername(), clientOptions.getPassword()).get();
     }
 
     return client;
+  }
+
+  public CredentialCallOption getCallOption() {
+    return this.callOption;
   }
 
   @Override

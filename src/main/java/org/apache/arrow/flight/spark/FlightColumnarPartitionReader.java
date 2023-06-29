@@ -18,6 +18,7 @@ package org.apache.arrow.flight.spark;
 
 import java.io.IOException;
 
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 import org.apache.arrow.flight.FlightClient;
@@ -28,13 +29,15 @@ import org.apache.spark.sql.vectorized.ColumnVector;
 public class FlightColumnarPartitionReader implements PartitionReader<ColumnarBatch> {
     private final FlightClientFactory clientFactory;;
     private final FlightClient client;
+    private final CredentialCallOption callOption;
     private final FlightStream stream;
 
     public FlightColumnarPartitionReader(FlightClientOptions clientOptions, FlightPartition partition) {
         // TODO - Should we handle multiple locations?
         clientFactory = new FlightClientFactory(partition.getEndpoint().get().getLocations().get(0), clientOptions);
         client = clientFactory.apply();
-        stream = client.getStream(partition.getEndpoint().get().getTicket());
+        callOption = clientFactory.getCallOption();
+        stream = client.getStream(partition.getEndpoint().get().getTicket(), callOption);
     }
 
     // This is written this way because the Spark interface iterates in a different way.

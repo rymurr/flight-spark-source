@@ -25,6 +25,7 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.SchemaResult;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -66,14 +67,20 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     private class Client implements AutoCloseable {
         private final FlightClientFactory clientFactory;
         private final FlightClient client;
+        private final CredentialCallOption callOption;
 
         public Client(Location location, FlightClientOptions clientOptions) {
             this.clientFactory = new FlightClientFactory(location, clientOptions);
             this.client = clientFactory.apply();
+            this.callOption = clientFactory.getCallOption();
         }
 
         public FlightClient get() {
             return client;
+        }
+
+        public CredentialCallOption getCallOption() {
+          return this.callOption;
         }
 
         @Override
@@ -85,7 +92,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
     private void getFlightSchema(FlightDescriptor descriptor) {
         try (Client client = new Client(location, clientOptions.getValue())) {
             LOGGER.info("getSchema() descriptor: %s", descriptor);
-            flightSchema = client.get().getSchema(descriptor);
+            flightSchema = client.get().getSchema(descriptor, client.getCallOption());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -96,7 +103,7 @@ public class FlightScanBuilder implements ScanBuilder, SupportsPushDownRequiredC
         try (Client client = new Client(location, clientOptions.getValue())) {
             FlightDescriptor descriptor = FlightDescriptor.command(sql.getBytes());
             LOGGER.info("getInfo() descriptor: %s", descriptor);
-            FlightInfo info = client.get().getInfo(descriptor);
+            FlightInfo info = client.get().getInfo(descriptor, client.getCallOption());
             return new FlightScan(readSchema(), info, clientOptions);
         } catch (Exception e) {
             throw new RuntimeException(e);
