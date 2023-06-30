@@ -35,6 +35,9 @@ import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
+import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -55,33 +58,50 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.Test.None;
-
+import org.apache.arrow.flight.CallStatus;
 import com.google.common.collect.ImmutableList;
+import com.google.common.base.Strings;
 
 public class TestConnector {
+  private static final String USERNAME_1 = "flight1";
+  private static final String USERNAME_2 = "flight2";
+  private static final String NO_USERNAME = "";
+  private static final String PASSWORD_1 = "woohoo1";
+  private static final String PASSWORD_2 = "woohoo2";
+
   private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
   private static Location location;
   private static FlightServer server;
   private static SparkSession spark;
   private static FlightSparkContext csc;
 
+  public static CallHeaderAuthenticator.AuthResult validate(String username, String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (USERNAME_1.equals(username) && PASSWORD_1.equals(password)) {
+      identity = USERNAME_1;
+    } else if (USERNAME_2.equals(username) && PASSWORD_2.equals(password)) {
+      identity = USERNAME_2;
+    } else {
+      throw CallStatus.UNAUTHENTICATED.withDescription("Username or password is invalid.").toRuntimeException();
+    }
+    return () -> identity;
+  }
+
   @BeforeClass
   public static void setUp() throws Exception {
-    server = FlightTestUtil.getStartedServer(location -> FlightServer.builder(allocator, location, new TestProducer()).authHandler(
-      new ServerAuthHandler() {
-        @Override
-        public Optional<String> isValid(byte[] token) {
-          return Optional.of("xxx");
-        }
-
-        @Override
-        public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
-          incoming.next();
-          outgoing.send(new byte[0]);
-          return true;
-        }
-      }).build()
+    FlightServer.Builder builder = FlightServer.builder(allocator,
+      Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, /*port*/ 0),
+      new TestProducer());
+    builder.headerAuthenticator(
+      new GeneratedBearerTokenAuthenticator(
+        new BasicCallHeaderAuthenticator(TestConnector::validate)
+      )
     );
+    server = builder.build();
+    server.start();
     location = server.getLocation();
     spark = SparkSession.builder()
       .appName("flightTest")
@@ -90,8 +110,8 @@ public class TestConnector {
       .config("spark.driver.allowMultipleContexts", "true")
       .config("spark.flight.endpoint.host", location.getUri().getHost())
       .config("spark.flight.endpoint.port", Integer.toString(location.getUri().getPort()))
-      .config("spark.flight.auth.username", "xxx")
-      .config("spark.flight.auth.password", "yyy")
+      .config("spark.flight.auth.username", USERNAME_1)
+      .config("spark.flight.auth.password", PASSWORD_1)
       .getOrCreate();
     csc = new FlightSparkContext(spark);
   }
