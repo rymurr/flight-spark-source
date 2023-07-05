@@ -26,7 +26,7 @@ It currently lacks:
 You can choose to build the JAR locally, or use one of the archived JAR artifacts built from a [Github Actions workflow run](https://github.com/rymurr/flight-spark-source/actions/workflows/maven-build.yml).
 
 1. Take the built JAR file named: `flight-spark-source-1.0-SNAPSHOT-shaded.jar` - and copy it to the spark master node.  For the sake of this example, we will use the `/tmp` directory
-2. Ensure you have a Flight server running and accessible to your Spark cluster.  For example of a Python Flight RPC server - see [this link](https://arrow.apache.org/cookbook/py/flight.html#streaming-parquet-storage-service).   
+2. Ensure you have a Flight server running and accessible to your Spark cluster.  For an example of a Python Flight RPC server - see [this link](https://arrow.apache.org/cookbook/py/flight.html#streaming-parquet-storage-service).   
    NOTE: you will have to add a `get_schema` end-point to that example server for it to work - with signature:   
 ```def get_schema(self, context, descriptor) -> pyarrow.flight.SchemaResult```   
    See this [link](https://arrow.apache.org/docs/python/generated/pyarrow.flight.FlightClient.html#pyarrow.flight.FlightClient.get_schema) for more details. 
