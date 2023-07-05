@@ -82,7 +82,7 @@
         <version>3.0</version>
         <configuration>
           <inlineHeader>
-            Copyright (C) ${project.inceptionYear} ${owner}
+            Copyright (C) ${project.inceptionYear}
 
             Licensed under the Apache License, Version 2.0 (the "License");
             you may not use this file except in compliance with the License.
@@ -555,7 +555,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.2.9</version>
       <scope>test</scope>
     </dependency>
     <dependency>
