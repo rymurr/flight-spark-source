@@ -41,7 +41,7 @@ spark = (SparkSession
          .appName("flight client")
          .config("spark.jars", "/tmp/flight-spark-source-1.0-SNAPSHOT-shaded.jar")
          .getOrCreate()
-         )```
+         )
 
 # Read from a Flight RPC server using an arbitrary string containing either a command or path
 # Note - this will call the Flight RPC Server's "get_schema" end-point (which must be present to use the connector)
